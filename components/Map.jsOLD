@@ -1,0 +1,546 @@
+﻿import { useState, useEffect, useRef } from "react";
+import maplibregl from "maplibre-gl";
+import { FaSearch, FaMapMarkerAlt, FaTrashAlt, FaRedoAlt, FaCompass, FaDrawPolygon, FaRuler } from "react-icons/fa";
+
+const MapComponent = () => {
+    const [mousePosition, setMousePosition] = useState({ lng: null, lat: null });
+    const mapContainer = useRef(null);
+    const [map, setMap] = useState(null);
+    const [viewMode, setViewMode] = useState("topo"); // Initialize with 2D Topo view
+    const [waypointMode, setWaypointMode] = useState(false);
+    const [newWaypoint, setNewWaypoint] = useState({
+        name: "",
+        color: "#FF0000",
+        shape: "circle",
+        coordinates: null,
+    });
+    const [waypoints, setWaypoints] = useState([]); // Points
+    const [lines, setLines] = useState([]); // Lines
+    const [areas, setAreas] = useState([]); // Areas
+    const [drawingMode, setDrawingMode] = useState(null); // "point", "line", "area"
+    const [currentDraw, setCurrentDraw] = useState([]); // Store temporary points while drawing
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState([]);
+    const [mapBearing, setMapBearing] = useState(0);
+    const [searchMarker, setSearchMarker] = useState(null);
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
+
+    // URLs for MapTiler Styles
+    const mapStyles = {
+        satellite: "https://api.maptiler.com/maps/0195f201-1f52-799d-8469-57619eb4eca2/style.json?key=62pHAREAAlakgz4jdy2q",
+        topo: "https://api.maptiler.com/maps/topo-v2/style.json?key=62pHAREAAlakgz4jdy2q",
+        basic: "https://api.maptiler.com/maps/basic/style.json?key=62pHAREAAlakgz4jdy2q",
+        hybrid: "https://api.maptiler.com/maps/0195f216-f519-7f26-959a-e14e22b27b0d/style.json?key=62pHAREAAlakgz4jdy2q",
+        terrain3d: "https://api.maptiler.com/maps/0195f7d6-4d1a-7147-b0f0-42ed9a32a816/style.json?key=62pHAREAAlakgz4jdy2q"
+    };
+
+
+    useEffect(() => {
+        const initialMap = new maplibregl.Map({
+            container: mapContainer.current,
+            style: mapStyles.topo,
+            center: [-100.5, 40],
+            zoom: 4,
+            pitch: 0, // Set initial pitch to 0 for 2D
+            bearing: 0, // Set initial bearing to 0
+        });
+
+        initialMap.addControl(new maplibregl.NavigationControl(), "top-right");
+
+        initialMap.on("load", () => {
+            setMap(initialMap);
+        });
+
+        initialMap.on("rotate", () => {
+            setMapBearing(initialMap.getBearing());
+        });
+
+        return () => {
+            initialMap.off("rotate");
+            initialMap.remove();
+        };
+
+    }, []);
+
+    useEffect(() => {
+        if (map) {
+            // Add a 'click' event listener when the map is initialized
+            map.on('click', handleMapClick);
+
+            // Clean up the event listener when the component is unmounted or map changes
+            return () => {
+                map.off('click', handleMapClick);
+            };
+        }
+    }, [map]);  // Only run this effect when the map is available
+
+    useEffect(() => {
+        if (!map) return;
+
+        // Mouse move event listener
+        map.on("mousemove", (e) => {
+            const { lng, lat } = e.lngLat;
+            setMousePosition({ lng, lat });
+        });
+
+        // Clean up event listener when map is removed
+        return () => {
+            if (map) {
+                map.off("mousemove");
+            }
+        };
+    }, [map]);
+
+    useEffect(() => {
+        if (!map) return;
+
+        const styles = {
+            satellite: mapStyles.satellite,
+            topo: mapStyles.topo,
+            basic: mapStyles.basic,
+            hybrid: mapStyles.hybrid,
+            terrain3d: mapStyles.terrain3d,
+        };
+
+        map.setStyle(styles[viewMode]);
+
+        // Adjust for 3D views
+        if (viewMode === "terrain3d") {
+            map.setPitch(60);  // Set tilt for 3D view
+            map.setBearing(0); // Keep north at the top for 3D
+        } else {
+            map.setPitch(0);  // Set pitch to 0 for 2D view
+        }
+    }, [viewMode, map]);
+
+    useEffect(() => {
+        // Debounced search query
+        const timeoutId = setTimeout(() => {
+            setDebouncedSearchQuery(searchQuery);
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
+    }, [searchQuery]);
+
+    useEffect(() => {
+        if (debouncedSearchQuery) {
+            fetch(`https://api.maptiler.com/geocoding/${debouncedSearchQuery}.json?key=62pHAREAAlakgz4jdy2q`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log("Search API response:", data); // Debugging line
+                    setSearchResults(data.features || []);
+                })
+                .catch(error => {
+                    console.error("Error with search:", error);
+                });
+        } else {
+            setSearchResults([]);
+        }
+    }, [debouncedSearchQuery]);
+
+
+    const handleMapClick = (e) => {
+        
+        if (e && e.lngLat) {
+            const { lng, lat } = e.lngLat; // Accessing lngLat directly from the event
+
+            if (waypointMode) { // Check if waypoint mode is active
+                // Create new waypoint data
+                const newWaypointData = {
+                    id: Date.now(),
+                    name: newWaypoint.name || "Waypoint",  // You can set a default name if empty
+                    color: newWaypoint.color,
+                    shape: newWaypoint.shape,
+                    coordinates: [lng, lat],  // Place the waypoint at the clicked location
+                };
+
+                // Update the state to store the new waypoint
+                setWaypoints((prev) => [...prev, newWaypointData]);
+
+                // Add a marker to the map at the new waypoint location
+                new maplibregl.Marker({ color: newWaypoint.color })
+                    .setLngLat([lng, lat])
+                    .addTo(map);
+
+                // Reset the waypoint form state
+                setNewWaypoint({
+                    name: "",
+                    color: "#FF0000",
+                    shape: "circle",
+                    coordinates: null,
+                });
+
+                // Turn off waypoint mode after adding a waypoint
+                setWaypointMode(false);
+            } else if (drawingMode === "line") {
+                // Add to the current line
+                setCurrentDraw((prev) => [...prev, [lng, lat]]);
+            } else if (drawingMode === "area") {
+                // Add to the current area
+                setCurrentDraw((prev) => [...prev, [lng, lat]]);
+            }
+        } else {
+            console.error("Invalid event structure:", e);
+        }
+    };
+
+    const handleWaypointModeToggle = () => {
+        setWaypointMode(!waypointMode);
+    };
+
+    const finishDrawing = () => {
+        if (drawingMode === "line" && currentDraw.length > 1) {
+            const newLine = { id: Date.now(), coordinates: currentDraw };
+            setLines((prev) => [...prev, newLine]);
+
+            map.addLayer({
+                id: `line-${newLine.id}`,
+                type: "line",
+                source: {
+                    type: "geojson",
+                    data: {
+                        type: "Feature",
+                        geometry: { type: "LineString", coordinates: newLine.coordinates },
+                    },
+                },
+                paint: {
+                    "line-color": "#FF0000",
+                    "line-width": 2,
+                },
+            });
+        }
+        else if (drawingMode === "area" && currentDraw.length > 2) {
+            const newArea = { id: Date.now(), coordinates: [...currentDraw, currentDraw[0]] }; // Close polygon
+            setAreas((prev) => [...prev, newArea]);
+
+            map.addLayer({
+                id: `area-${newArea.id}`,
+                type: "fill",
+                source: {
+                    type: "geojson",
+                    data: {
+                        type: "Feature",
+                        geometry: { type: "Polygon", coordinates: [newArea.coordinates] },
+                    },
+                },
+                paint: {
+                    "fill-color": "#0080FF",
+                    "fill-opacity": 0.5,
+                },
+            });
+        }
+
+        setCurrentDraw([]); // Clear current drawing
+        setDrawingMode(null); // Exit drawing mode
+    };
+
+    const handleWaypointSubmit = () => {
+        if (newWaypoint.coordinates) {
+            const newWaypointData = {
+                id: Date.now(),
+                ...newWaypoint,
+            };
+            setWaypoints((prev) => [...prev, newWaypointData]);
+
+            const marker = new maplibregl.Marker({ color: newWaypoint.color })
+                .setLngLat(newWaypoint.coordinates)
+                .addTo(map);
+
+            setNewWaypoint({
+                name: "",
+                color: "#FF0000",
+                shape: "circle",
+                coordinates: null,
+            });
+
+            const [editingWaypoint, setEditingWaypoint] = useState(false);
+
+            setEditingWaypoint(false);
+            setWaypointMode(false);
+        }
+    };
+
+    const handleWaypointChange = (e) => {
+        const { name, value } = e.target;
+        setNewWaypoint((prev) => ({
+            ...prev,
+            [name]: value,
+        }));
+    };
+
+
+    const handleSearchSubmit = (result) => {
+        if (map && result) {
+            const { geometry } = result;
+
+            // Ensure coordinates are in [longitude, latitude] order
+            const coordinates = geometry.coordinates;
+
+            if (coordinates && coordinates.length === 2) {
+                const [longitude, latitude] = coordinates;
+
+                // Fly to the location with an updated zoom level
+                map.flyTo({ center: [longitude, latitude], zoom: 18 });
+
+                setSearchQuery("");
+                setSearchResults([]);
+            } else {
+                console.error("Invalid coordinates format", geometry.coordinates);
+            }
+        }
+    };
+
+    const resetMapToNorth = () => {
+        if (map) {
+            map.setBearing(0);
+            setMapBearing(0);
+        }
+    };
+
+    const removeWaypoint = (id) => {
+        setWaypoints((prev) => prev.filter((wp) => wp.id !== id));
+    };
+
+    const jumpToWaypoint = (coordinates) => {
+        if (map) {
+            map.flyTo({ center: coordinates, zoom: 12 });
+        }
+    };
+
+    return (
+        <div style={{ position: "relative", width: "100%", height: "100vh" }}>
+            <div ref={mapContainer} style={{ width: "100%", height: "100%" }} onClick={handleMapClick} />
+
+            {/* Mouse Position */}
+            <div style={{
+                position: "absolute",
+                bottom: "10px",  // Dock to the bottom of the container
+                left: "10px",    // Dock to the left of the container
+                zIndex: 1000,
+                backgroundColor: "rgba(0, 0, 0, 0.3)",  // Grey with transparency
+                color: "white",   // Text color for contrast
+                padding: "10px",
+                borderRadius: "5px",
+                boxShadow: "0px 0px 5px rgba(0, 0, 0, 0.2)"
+            }}>
+                <strong>Mouse Position:</strong> <span>{`Lng: ${mousePosition.lng || 0}, Lat: ${mousePosition.lat || 0}`}</span>
+            </div>
+
+            {/* ToolBar */}
+            <div style={{ ...styles.waypointTools, color: "black" }}>
+                <h2>Tools</h2>      
+
+                <button onClick={handleWaypointModeToggle} style={waypointMode ? styles.activeButton : styles.inactiveButton}>
+                    <FaMapMarkerAlt style={styles.buttonIcon} />
+                    {waypointMode ? "Stop Adding Waypoints" : "Add Waypoint"}
+                </button>
+
+                <div style={styles.managementPanel}>
+                    
+                    {waypoints.map((wp) => (
+                        <div key={wp.id} style={styles.waypointItem}>
+                            <span>{wp.name}</span>
+                            <div style={styles.waypointActions}>
+                                <button onClick={() => jumpToWaypoint(wp.coordinates)} style={styles.waypointButton}>
+                                    Jump
+                                </button>
+                                <button onClick={() => removeWaypoint(wp.id)} style={styles.waypointButton}>
+                                    <FaTrashAlt style={styles.buttonIcon} />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+
+            {/* Search Bar */}
+            <div style={styles.searchBar}>
+                <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search for places, addresses, or coordinates"
+                    style={styles.searchInput}
+                />
+                <button
+                    onClick={() => searchResults.length > 0 && handleSearchSubmit(searchResults[0])}
+                    style={styles.searchButton}
+                >
+                    <FaSearch />
+                </button>
+                {searchResults.length > 0 && (
+                    <ul style={styles.searchResults}>
+                        {searchResults.map((result) => (
+                            <li
+                                key={result.id}
+                                onClick={() => handleSearchSubmit(result)}
+                                style={styles.searchResultItem}
+                            >
+                                <strong>{result.properties.title}</strong><br />
+                                {result.properties.description}
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
+
+            {/* View Mode Toggles (Docked to bottom-right corner) */}
+            <div style={styles.viewModeToggleContainer}>
+                <button onClick={() => setViewMode("topo")} style={viewMode === "topo" ? styles.activeToggle : styles.inactiveToggle}>
+                    2D Topo
+                </button>
+                <button onClick={() => setViewMode("satellite")} style={viewMode === "satellite" ? styles.activeToggle : styles.inactiveToggle}>
+                    2D Satellite
+                </button>
+                <button onClick={() => setViewMode("hybrid")} style={viewMode === "hybrid" ? styles.activeToggle : styles.inactiveToggle}>
+                    3D Hybrid View
+                </button>
+                <button onClick={() => setViewMode("terrain3d")} style={viewMode === "terrain3d" ? styles.activeToggle : styles.inactiveToggle}>
+                    3D Topo View
+                </button>
+            </div>
+
+            {/* Reset to North Button (Docked above view mode toggles) */}
+            <button onClick={resetMapToNorth} style={{ ...styles.resetButton, transform: `rotate(${mapBearing}deg)` }}>
+                <FaCompass style={styles.compassIcon} />
+            </button>
+        </div>
+
+
+    );
+};
+
+const styles = {
+    searchBar: {
+        position: "absolute",
+        top: "10px",
+        left: "10%",  
+        transform: "translateX(-50%)",
+        backgroundColor: "white",
+        padding: "10px",
+        borderRadius: "5px",
+        boxShadow: "0px 0px 5px rgba(0,0,0,0.2)",
+        zIndex: 1000,
+        display: "flex",           // FLEXBOX to align input & button side by side
+        alignItems: "center",       // Ensures vertical alignment
+        gap: "8px",                 // Adds spacing between input and button
+        width: "300px",             // Set a fixed width or adjust as needed
+    },
+
+    searchInput: {
+        flex: 1,                    // Makes input take up remaining space
+        padding: "8px",
+        fontSize: "14px",
+        borderRadius: "5px",
+        border: "1px solid #ccc",
+        color: "black",
+    },
+
+    searchButton: {
+        backgroundColor: "#1d72b8",
+        color: "white",
+        padding: "8px 12px",        // Adjusted for better button sizing
+        fontSize: "14px",
+        borderRadius: "5px",
+        border: "none",
+        cursor: "pointer",
+        width: "auto",              // Auto width so it doesn't shrink
+        whiteSpace: "nowrap",       // Prevents button text from wrapping
+    },
+
+    waypointTools: {
+        position: "absolute",
+        top: "10px",
+        right: "10px",
+        backgroundColor: "white",
+        padding: "8px",
+        borderRadius: "6px",
+        boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+        zIndex: 999,
+    },
+    activeButton: {
+        backgroundColor: "#FF0000",
+        color: "#fff",
+        padding: "4px 6px",
+        borderRadius: "4px",
+        border: "none",
+        cursor: "pointer",
+        fontSize: "12px",
+    },
+    inactiveButton: {
+        backgroundColor: "#999",
+        color: "#fff",
+        padding: "4px 6px",
+        borderRadius: "4px",
+        border: "none",
+        cursor: "pointer",
+        fontSize: "12px",
+    },
+    waypointItem: {
+        padding: "6px 0",
+    },
+    waypointActions: {
+        display: "flex",
+        justifyContent: "space-between",
+    },
+    waypointButton: {
+        backgroundColor: "#007bff",
+        color: "#fff",
+        padding: "4px 6px",
+        borderRadius: "4px",
+        border: "none",
+        cursor: "pointer",
+        fontSize: "12px",
+    },
+    compassIcon: {
+        fontSize: "16px",
+        color: "#007bff",
+    },
+    resetButton: {
+        position: "absolute",
+        top: "100px", // Moves it below the waypoint buttons
+        right: "10px", // Keeps it aligned with the waypoint buttons
+        backgroundColor: "#fff",
+        border: "2px solid #007bff",
+        padding: "6px",
+        borderRadius: "50%",
+        boxShadow: "0px 4px 6px rgba(0,0,0,0.1)",
+        cursor: "pointer",
+        zIndex: 1000,
+    },
+    viewModeToggleContainer: {
+        position: "absolute",
+        bottom: "25px",
+        right: "20px",
+        backgroundColor: "white",
+        padding: "5px",
+        borderRadius: "5px",
+        boxShadow: "0px 0px 5px rgba(0,0,0,0.2)",
+        zIndex: 1000,
+        display: "flex",
+        gap: "5px",
+    },
+    activeToggle: {
+        backgroundColor: "#007bff",
+        color: "white",
+        padding: "4px 6px",
+        borderRadius: "4px",
+        cursor: "pointer",
+        fontSize: "12px",
+        flex: "1",
+    },
+    inactiveToggle: {
+        backgroundColor: "#ddd",
+        color: "#000",
+        padding: "4px 6px",
+        borderRadius: "4px",
+        cursor: "pointer",
+        fontSize: "12px",
+        flex: "1",
+    },
+
+};
+
+
+export default MapComponent;
