@@ -1,16 +1,8 @@
-import { useSession, signOut } from "next-auth/react";
-
 export default function Home() {
-  const { data: session } = useSession();
-
-  if (!session) {
-    return <div>Please log in.</div>;
-  }
-
-  return (
-    <div>
-      <h1>Welcome {session.user.email}!</h1>
-      <button onClick={() => signOut()}>Sign Out</button>
-    </div>
-  );
+    return (
+        <div>
+            <h1>Welcome to the Hunt Topo!</h1>
+            <p>This is your home screen. Add authentication later if needed.</p>
+        </div>
+    );
 }
