@@ -18,17 +18,15 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "plugins": [
-
       {
         "name": "next"
       }
     ],
     "strictNullChecks": true,
-    "baseUrl": ".", // Set base URL to the root of the project
+    "baseUrl": ".",
     "paths": {
       "@/*": [ "./*" ]
     }
-
   },
   "include": [
     "next-env.d.ts",
