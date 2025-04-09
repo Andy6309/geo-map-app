@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 
 // Dynamically import the JavaScript file
-const Map = dynamic(() => import("@/components/map"), { ssr: false });
+const Map = dynamic(() => import("@/components/Map"), { ssr: false });
 
 export default function Home() {
     return (
