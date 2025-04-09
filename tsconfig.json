@@ -26,10 +26,9 @@
     "strictNullChecks": true,
     "baseUrl": ".", // Set base URL to the root of the project
     "paths": {
-      "@/*": [
-        "./*"
-      ] // This will map '@/' to the root of the project
+      "@/*": [ "./*" ]
     }
+
   },
   "include": [
     "next-env.d.ts",
