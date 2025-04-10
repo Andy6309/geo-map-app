@@ -2,8 +2,11 @@
   "ExpandedNodes": [
     "",
     "\\app",
-    "\\components"
+    "\\components",
+    "\\prisma",
+    "\\public",
+    "\\public\\images"
   ],
-  "SelectedNode": "\\package.json",
+  "SelectedNode": "\\public\\images",
   "PreviewInSolutionExplorer": false
 }

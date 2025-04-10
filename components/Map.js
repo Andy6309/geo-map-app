@@ -227,13 +227,13 @@ const Map = () => {
                 setupGeocoder(map);
 
                 // Re-add terrain source after style change
-                map.addSource('mapbox-dem', {
-                    'type': 'raster-dem',
-                    'url': 'mapbox://mapbox.terrain-rgb',
-                    'tileSize': 512,
-                    'maxzoom': 14
-                });
-                map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+               // map.addSource('mapbox-dem', {
+                //    'type': 'raster-dem',
+                //    'url': 'mapbox://mapbox.terrain-rgb',
+                //    'tileSize': 512,
+                 //   'maxzoom': 14
+               // });
+                //map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
             });
         }
     };

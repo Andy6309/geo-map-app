@@ -1,0 +1,62 @@
+﻿generator client {
+  provider = "prisma-client-js"
+  output   = "./node_modules/@prisma/client" // ✅ recommended for Prisma 7+
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model users {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username      String    @unique
+  created_at    DateTime? @default(dbgenerated("(now() AT TIME ZONE 'US/Eastern'::text)")) @db.Timestamptz(6)
+
+  // ✅ Relations
+  waypoints     waypoints[]
+  lines         lines[]
+  shapes        shapes[]
+}
+
+model waypoints {
+  id          Int       @id @default(autoincrement())
+  user_id     String    @db.Uuid
+  name        String?
+  description String?
+  geom        Unsupported("geography(Point,4326)")?
+  created_at  DateTime? @default(dbgenerated("(now() AT TIME ZONE 'US/Eastern'::text)")) @db.Timestamptz(6)
+
+  user        users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model lines {
+  id          Int       @id @default(autoincrement())
+  user_id     String    @db.Uuid
+  name        String?
+  description String?
+  geom        Unsupported("geography(LineString,4326)")?
+  created_at  DateTime? @default(dbgenerated("(now() AT TIME ZONE 'US/Eastern'::text)")) @db.Timestamptz(6)
+
+  user        users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model shapes {
+  id          Int       @id @default(autoincrement())
+  user_id     String    @db.Uuid
+  name        String?
+  description String?
+  geom        Unsupported("geography(Polygon,4326)")?
+  created_at  DateTime? @default(dbgenerated("(now() AT TIME ZONE 'US/Eastern'::text)")) @db.Timestamptz(6)
+
+  user        users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+// Optional system table for PostGIS (no changes needed if unused directly)
+model spatial_ref_sys {
+  srid      Int     @id
+  auth_name String? @db.VarChar(256)
+  auth_srid Int?
+  srtext    String? @db.VarChar(2048)
+  proj4text String? @db.VarChar(2048)
+}
