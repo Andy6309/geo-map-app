@@ -18,24 +18,23 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "plugins": [
-
       {
         "name": "next"
       }
     ],
     "strictNullChecks": true,
-    "baseUrl": ".", // Set base URL to the root of the project
+    "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./*"
-      ] // This will map '@/' to the root of the project
+      "@/*": [ "./*" ]
     }
   },
   "include": [
     "next-env.d.ts",
     ".next/types/**/*.ts",
     "**/*.ts",
-    "**/*.tsx"
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "next.config.ts"
   ],
   "exclude": [
     "node_modules"

@@ -4,8 +4,10 @@ import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
+import { supabase } from '../lib/supabaseClient';
+import { useRouter } from 'next/router';
 
-mapboxgl.accessToken = 'pk.eyJ1IjoiYW5keTYzMDkiLCJhIjoiY205MWJ1ZnR3MDdsdzJpcGp5MzE1amVtayJ9.FMxCO78hxeHn4hC3_xrexg';
+mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
 const Map = () => {
     const mapContainer = useRef(null);
@@ -16,6 +18,7 @@ const Map = () => {
     const [mapPitch, setMapPitch] = useState(0);
     const geocoderRef = useRef(null);
     const [draw, setDraw] = useState(null);
+    const router = userRotuer();
 
     const styles = {
         '3D-Topo': 'mapbox://styles/andy6309/cm91e8vke00j901s409p0fn1u',
@@ -23,6 +26,26 @@ const Map = () => {
         '2D-Satellite': 'mapbox://styles/andy6309/cm91dg5v400cg01sb7l517cjv',
         '2D-Topo': 'mapbox://styles/andy6309/cm91cu31800j101s4bxku2m6i'
     };
+
+    useEffect(() => {
+        const session = supabase.auth.getSession();
+        if (!session) {
+            router.push('/login'); // Redirect to login if not authenticated
+        } else {
+            setUser(session.user);
+        }
+    }, []);
+
+    if (!user) {
+        return <p>Loading...</p>;
+    }
+
+    return (
+        <div>
+            {/* Map rendering logic here */}
+            <h1>Welcome to the Map, {user.email}</h1>
+        </div>
+    );
 
     // Function to set up the geocoder
     const setupGeocoder = (mapInstance) => {
@@ -179,9 +202,8 @@ const Map = () => {
             }
             initialMap.remove();
         };
+  
     }, []);
-
-
 
     // Add event handlers for the draw features
     useEffect(() => {
@@ -227,13 +249,13 @@ const Map = () => {
                 setupGeocoder(map);
 
                 // Re-add terrain source after style change
-                map.addSource('mapbox-dem', {
-                    'type': 'raster-dem',
-                    'url': 'mapbox://mapbox.terrain-rgb',
-                    'tileSize': 512,
-                    'maxzoom': 14
-                });
-                map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+               // map.addSource('mapbox-dem', {
+                //    'type': 'raster-dem',
+                //    'url': 'mapbox://mapbox.terrain-rgb',
+                //    'tileSize': 512,
+                 //   'maxzoom': 14
+               // });
+                //map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
             });
         }
     };
