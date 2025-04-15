@@ -1,9 +1,9 @@
 {
   "ExpandedNodes": [
     "",
-    "\\app",
-    "\\components"
+    "\\components",
+    "\\primsa"
   ],
-  "SelectedNode": "\\package.json",
+  "SelectedNode": "\\components\\Map.js",
   "PreviewInSolutionExplorer": false
 }
