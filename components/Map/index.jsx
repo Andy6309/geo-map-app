@@ -12,6 +12,7 @@ import { setupGeolocateControl } from './utils/setupGeolocateControl';
 import { trackMousePosition } from './utils/mouseTracker';
 import { CompassButton } from './controls/CompassButton';
 import { DrawingToolbar } from './controls/DrawingToolbar';
+import { Analytics } from "@vercel/analytics/react"
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
