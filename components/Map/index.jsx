@@ -1,4 +1,3 @@
-'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
@@ -42,6 +41,38 @@ const Map = () => {
                 polygon: true,
                 trash: true,
             },
+            styles: [
+                // Active line style while drawing
+                {
+                    id: 'gl-draw-line',
+                    type: 'line',
+                    filter: ['all', ['==', '$type', 'LineString'], ['!=', 'mode', 'static']],
+                    layout: {
+                        'line-cap': 'round',
+                        'line-join': 'round'
+                    },
+                    paint: {
+                        'line-color': '#ff6600',
+                        'line-dasharray': [0.2, 2],
+                        'line-width': 4
+                    }
+                },
+                // Inactive drawn line
+                {
+                    id: 'gl-draw-line-static',
+                    type: 'line',
+                    filter: ['all', ['==', '$type', 'LineString'], ['==', 'mode', 'static']],
+                    layout: {
+                        'line-cap': 'round',
+                        'line-join': 'round'
+                    },
+                    paint: {
+                        'line-color': '#333',
+                        'line-width': 3
+                    }
+                },
+                // You can also keep the default point/polygon styles if you use them.
+            ]
         });
 
         initialMap.addControl(drawControl, 'top-left');
