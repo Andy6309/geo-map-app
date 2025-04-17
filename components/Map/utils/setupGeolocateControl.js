@@ -9,7 +9,8 @@ export function setupGeolocateControl(mapInstance) {
       enableHighAccuracy: true,
     },
     trackUserLocation: true,
-    showUserHeading: true,
+      showUserHeading: true,
+      showUserLocation: true,
   });
 
   mapInstance.addControl(geolocateControl, 'top-right');

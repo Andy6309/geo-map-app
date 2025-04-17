@@ -12,7 +12,7 @@ export const CompassButton = ({ mapBearing, mapPitch, resetNorthAndTilt }) => {
     <div
       style={{
         position: 'absolute',
-        top: '250px',
+        bottom: '230px',
         right: '10px',
         zIndex: 2,
         opacity: opacity,
@@ -39,16 +39,7 @@ export const CompassButton = ({ mapBearing, mapPitch, resetNorthAndTilt }) => {
         }}
         aria-label="Reset North and Tilt"
       >
-        {/* Circular outline */}
-        <div style={{
-          width: '100%',
-          height: '100%',
-          borderRadius: '50%',
-          border: '2px solid #007bff',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-        }} />
+
         {/* Arrows + Markers */}
         <div style={{
           position: 'absolute',
