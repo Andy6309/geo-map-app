@@ -1,24 +1,19 @@
-﻿// File: components/Map/controls/LocateMeButton.js
-// Purpose: Locate user and drop a custom <Plus /> icon marker
-
-import React, { useEffect, useRef } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
-import { Locate, Plus } from 'lucide-react';
+import { Locate } from 'lucide-react';
 
 export const LocateMeButton = ({ map }) => {
     const userMarkerRef = useRef(null);
+    const [loading, setLoading] = useState(false);
 
     const handleClick = () => {
         if (!map || !navigator.geolocation) return;
 
+        setLoading(true);
+
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 const { latitude, longitude } = pos.coords;
-
-                // Remove old marker
-                //if (userMarkerRef.current) {
-                 //   userMarkerRef.current.remove();
-                //}
 
                 // Create HTML element for the marker
                 const el = document.createElement('div');
@@ -37,6 +32,11 @@ export const LocateMeButton = ({ map }) => {
                 icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg>`;
                 el.appendChild(icon);
 
+                // Remove any old marker before adding a new one
+                if (userMarkerRef.current) {
+                    userMarkerRef.current.remove();
+                }
+
                 // Add the marker to the map
                 const marker = new mapboxgl.Marker(el)
                     .setLngLat([longitude, latitude])
@@ -50,9 +50,12 @@ export const LocateMeButton = ({ map }) => {
                     zoom: 15,
                     speed: 1.2,
                 });
+
+                setLoading(false); // End the loading state
             },
             (err) => {
                 console.error('Geolocation error:', err);
+                setLoading(false); // End loading in case of error
             },
             {
                 enableHighAccuracy: true,
@@ -60,6 +63,14 @@ export const LocateMeButton = ({ map }) => {
             }
         );
     };
+
+    useEffect(() => {
+        // Ensure the map is loaded and markers are only added when the map is ready
+        if (map) {
+            // Optional: you can center the map initially or after loading
+            // map.flyTo({ center: map.getCenter(), zoom: 10 });
+        }
+    }, [map]);
 
     return (
         <div style={{ position: 'absolute', bottom: '80px', right: '16px', zIndex: 2 }}>
@@ -78,10 +89,12 @@ export const LocateMeButton = ({ map }) => {
                     cursor: 'pointer',
                     transition: 'background-color 0.2s ease',
                     boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+                    opacity: loading ? 0.6 : 1,
                 }}
                 title="Locate Me"
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2a2a2a')}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1e1e1e')}
+                disabled={loading}
             >
                 <Locate size={22} />
             </button>

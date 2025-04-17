@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+// src/controls/Waypoint.js
+import React, { useState, useRef, useEffect } from 'react';
 import Modal from 'react-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMapMarkerAlt } from '@fortawesome/free-solid-svg-icons';
 import mapboxgl from 'mapbox-gl';
 
-// Default modal styles
+// Popup styling
 const modalStyles = {
     content: {
         position: 'absolute',
@@ -19,46 +20,68 @@ const modalStyles = {
     },
 };
 
+// WaypointDrawer class
+export class WaypointDrawer {
+    constructor(map) {
+        this.map = map;
+        this.markers = [];
+    }
+
+    addWaypoint(lngLat, name, color) {
+        const el = document.createElement('div');
+        el.className = 'custom-marker';
+        el.style.backgroundColor = color;
+        el.style.width = '20px';
+        el.style.height = '20px';
+        el.style.borderRadius = '50%';
+        el.style.border = '2px solid white';
+        el.style.boxShadow = '0 0 3px rgba(0,0,0,0.5)';
+        el.title = name;
+
+        const popup = new mapboxgl.Popup({ offset: 25 }).setText(name);
+        const marker = new mapboxgl.Marker({ element: el, draggable: true })
+            .setLngLat(lngLat)
+            .setPopup(popup)
+            .addTo(this.map);
+
+        this.markers.push(marker);
+        return marker;
+    }
+
+    removeWaypoint(marker) {
+        marker.remove();
+        this.markers = this.markers.filter((m) => m !== marker);
+    }
+
+    clearAll() {
+        this.markers.forEach((marker) => marker.remove());
+        this.markers = [];
+    }
+}
+
 const Waypoint = ({ map }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [waypointName, setWaypointName] = useState('');
     const [waypointColor, setWaypointColor] = useState('red');
+    const waypointDrawer = useRef(null);
 
     const openModal = () => setIsModalOpen(true);
     const closeModal = () => setIsModalOpen(false);
 
     const handleAddWaypoint = () => {
-        if (waypointName && map) {
+        if (waypointName && map && waypointDrawer.current) {
             const center = map.getCenter();
-
-            // Create a custom DOM element for the marker
-            const el = document.createElement('div');
-            el.className = 'custom-marker';
-            el.style.backgroundColor = waypointColor;
-            el.style.width = '20px';
-            el.style.height = '20px';
-            el.style.borderRadius = '50%';
-            el.style.border = '2px solid white';
-            el.style.boxShadow = '0 0 3px rgba(0,0,0,0.5)';
-            el.title = waypointName;
-
-            // Create popup
-            const popup = new mapboxgl.Popup({ offset: 25 }).setText(waypointName);
-
-            // Create the draggable marker
-            const marker = new mapboxgl.Marker({ element: el, draggable: true })
-                .setLngLat(center)
-                .setPopup(popup)
-                .addTo(map);
-
-            // Optional: show popup on marker click
-            el.addEventListener('click', () => marker.togglePopup());
-
-            // Reset form and close modal
+            waypointDrawer.current.addWaypoint(center, waypointName, waypointColor);
             setWaypointName('');
             closeModal();
         }
     };
+
+    useEffect(() => {
+        if (map && !waypointDrawer.current) {
+            waypointDrawer.current = new WaypointDrawer(map);
+        }
+    }, [map]);
 
     const buttonStyle = {
         backgroundColor: 'white',
@@ -86,18 +109,16 @@ const Waypoint = ({ map }) => {
 
     return (
         <div>
-            {/* Waypoint button */}
             <button onClick={openModal} style={buttonStyle}>
                 <FontAwesomeIcon icon={faMapMarkerAlt} />
             </button>
 
-            {/* Modal */}
             <Modal
                 isOpen={isModalOpen}
                 onRequestClose={closeModal}
                 style={modalStyles}
                 contentLabel="Add Waypoint"
-                ariaHideApp={false} // Add this if you're getting accessibility warnings
+                ariaHideApp={false}
             >
                 <h2>Add Waypoint</h2>
                 <div>
