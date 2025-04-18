@@ -1,4 +1,4 @@
-
+﻿
 import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
@@ -11,6 +11,8 @@ import { Analytics } from '@vercel/analytics/react';
 import { LocateMeButton } from './controls/LocateMeButton';
 import ZoomControl from './controls/ZoomControl';
 import { WaypointDrawer } from './controls/Waypoint';
+import { length as turfLength, point, lineString } from '@turf/turf';
+import  LineMeasure from './controls/LineMeasure';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -36,13 +38,10 @@ const Map = () => {
         const drawControl = new MapboxDraw({
             displayControlsDefault: false,
             controls: {
-                point: true,
                 line_string: true,
-                polygon: true,
-                trash: true,
+                trash: true
             },
             styles: [
-                // Active line style while drawing
                 {
                     id: 'gl-draw-line',
                     type: 'line',
@@ -53,11 +52,9 @@ const Map = () => {
                     },
                     paint: {
                         'line-color': '#ff6600',
-                        'line-dasharray': [0.2, 2],
                         'line-width': 4
                     }
                 },
-                // Inactive drawn line
                 {
                     id: 'gl-draw-line-static',
                     type: 'line',
@@ -71,7 +68,15 @@ const Map = () => {
                         'line-width': 3
                     }
                 },
-                // You can also keep the default point/polygon styles if you use them.
+                {
+                    id: 'gl-draw-point',
+                    type: 'circle',
+                    filter: ['all', ['==', '$type', 'Point'], ['!=', 'meta', 'midpoint']],
+                    paint: {
+                        'circle-radius': 6,
+                        'circle-color': '#ff6600'
+                    }
+                }
             ]
         });
 
@@ -101,31 +106,6 @@ const Map = () => {
             trackMousePosition(map, infoVisible); // Update mouse position display based on visibility
         }
     }, [infoVisible, map]);
-
-    useEffect(() => {
-        if (map && draw) {
-            map.on('draw.create', (e) => {
-                console.log('Drawn:', e.features);
-                if (waypointDrawerRef.current) {
-                    waypointDrawerRef.current.addWaypoints(e.features);
-                }
-            });
-
-            map.on('draw.update', (e) => {
-                console.log('Updated:', e.features);
-                if (waypointDrawerRef.current) {
-                    waypointDrawerRef.current.updateWaypoints(e.features);
-                }
-            });
-
-            map.on('draw.delete', (e) => {
-                console.log('Deleted:', e.features);
-                if (waypointDrawerRef.current) {
-                    waypointDrawerRef.current.removeWaypoints(e.features);
-                }
-            });
-        }
-    }, [map, draw]);
 
     const changeMapStyle = (styleKey) => {
         if (!map) return;
@@ -167,6 +147,7 @@ const Map = () => {
                 <LocateMeButton map={map} />
                 <DrawingToolbar draw={draw} map={map} />
                 <ZoomControl map={map} />
+                <LineMeasure map={map} draw={draw} />
 
                 <div
                     ref={mapContainer}
