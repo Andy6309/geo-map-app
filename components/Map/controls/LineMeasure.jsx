@@ -57,13 +57,13 @@ const LineMeasure = ({ map, draw }) => {
                 const data = draw.getAll();
                 const points = [];
                 const labels = [];
-
+                let totalFeet = 0;
+            
                 data.features.forEach((line) => {
                     if (line.geometry.type !== 'LineString') return;
-
+            
                     const coords = line.geometry.coordinates;
-                    let totalFeet = 0;
-
+            
                     for (let i = 0; i < coords.length; i++) {
                         points.push({
                             type: 'Feature',
@@ -73,17 +73,17 @@ const LineMeasure = ({ map, draw }) => {
                             },
                             properties: {}
                         });
-
+            
                         if (i > 0) {
                             const seg = lineString([coords[i - 1], coords[i]]);
                             const distFeet = turfLength(seg, { units: 'kilometers' }) * 3280.84;
                             totalFeet += distFeet;
-
+            
                             const mid = [
                                 (coords[i - 1][0] + coords[i][0]) / 2,
                                 (coords[i - 1][1] + coords[i][1]) / 2
                             ];
-
+            
                             labels.push({
                                 type: 'Feature',
                                 geometry: {
@@ -96,9 +96,18 @@ const LineMeasure = ({ map, draw }) => {
                             });
                         }
                     }
-
+            
                     if (coords.length > 1) {
                         const lastCoord = coords[coords.length - 1];
+            
+                        // Convert total distance to miles if it exceeds the feet-to-mile threshold
+                        let totalDistance = totalFeet;
+                        let unit = 'ft';
+                        if (totalFeet >= 5280) { // 1 mile = 5280 feet
+                            totalDistance = totalFeet / 5280;
+                            unit = 'miles';
+                        }
+            
                         labels.push({
                             type: 'Feature',
                             geometry: {
@@ -106,17 +115,17 @@ const LineMeasure = ({ map, draw }) => {
                                 coordinates: lastCoord
                             },
                             properties: {
-                                label: `Total: ${totalFeet.toFixed(1)} ft`
+                                label: `Total: ${totalDistance.toFixed(2)} ${unit}`
                             }
                         });
                     }
                 });
-
+            
                 map.getSource('vertex-points')?.setData({
                     type: 'FeatureCollection',
                     features: points
                 });
-
+            
                 map.getSource('distance-labels')?.setData({
                     type: 'FeatureCollection',
                     features: labels

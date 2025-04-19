@@ -14,6 +14,7 @@ import { WaypointDrawer } from './controls/Waypoint';
 import { length as turfLength, point, lineString } from '@turf/turf';
 import  LineMeasure from './controls/LineMeasure';
 
+
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
 const Map = () => {
