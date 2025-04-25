@@ -9,7 +9,7 @@ export function trackMousePosition(mapInstance, isMouseTrackingEnabled = true) {
     // If checkbox doesn't exist yet, return early
     if (!toggleCheckbox || !infoElement) return;
 
-    // If tracking is disabled, remove the previous event handler if it exists
+    // If tracking is disabled, remove only our own event handler if it exists
     if (!isMouseTrackingEnabled && mouseMoveHandler) {
         mapInstance.off('mousemove', mouseMoveHandler);
         mouseMoveHandler = null;
@@ -22,6 +22,7 @@ export function trackMousePosition(mapInstance, isMouseTrackingEnabled = true) {
     // If tracking is enabled, set the mouse move handler
     if (isMouseTrackingEnabled && !mouseMoveHandler) {
         mouseMoveHandler = (e) => {
+            console.log('mouseTracker.js mousemove', e.lngLat);
             const lng = e.lngLat.lng.toFixed(4);
             const lat = e.lngLat.lat.toFixed(4);
             const elevation = mapInstance.queryTerrainElevation(e.lngLat);

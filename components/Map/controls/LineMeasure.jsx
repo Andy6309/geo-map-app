@@ -54,6 +54,7 @@ const LineMeasure = ({ map, draw }) => {
             }
 
             const updateLiveMeasurements = () => {
+                if (!draw || typeof draw.getAll !== 'function') return;
                 const data = draw.getAll();
                 const points = [];
                 const labels = [];
@@ -115,7 +116,7 @@ const LineMeasure = ({ map, draw }) => {
                                 coordinates: lastCoord
                             },
                             properties: {
-                                label: `Total: ${totalDistance.toFixed(2)} ${unit}`
+                                label: `Total: ${totalDistance >= 5280 ? totalDistance.toFixed(2) : totalDistance.toFixed(1)} ${unit}`
                             }
                         });
                     }
@@ -138,11 +139,13 @@ const LineMeasure = ({ map, draw }) => {
                 map.getSource('distance-labels')?.setData(empty);
             };
 
-            map.on('draw.create', updateLiveMeasurements);
-            map.on('draw.update', updateLiveMeasurements);
-            map.on('draw.render', updateLiveMeasurements);
-            map.on('draw.selectionchange', updateLiveMeasurements);
-            map.on('draw.delete', clearMeasurements);
+            if (draw && typeof draw.on === 'function') {
+                draw.on('draw.create', updateLiveMeasurements);
+                draw.on('draw.update', updateLiveMeasurements);
+                draw.on('draw.render', updateLiveMeasurements);
+                draw.on('draw.selectionchange', updateLiveMeasurements);
+                draw.on('draw.delete', clearMeasurements);
+            }
         };
 
         if (!map.loaded()) {
@@ -152,11 +155,13 @@ const LineMeasure = ({ map, draw }) => {
         }
 
         return () => {
-            map.off('draw.create', onMapLoad);
-            map.off('draw.update', onMapLoad);
-            map.off('draw.render', onMapLoad);
-            map.off('draw.selectionchange', onMapLoad);
-            map.off('draw.delete', onMapLoad);
+            if (draw && typeof draw.off === 'function') {
+                draw.off('draw.create', updateLiveMeasurements);
+                draw.off('draw.update', updateLiveMeasurements);
+                draw.off('draw.render', updateLiveMeasurements);
+                draw.off('draw.selectionchange', updateLiveMeasurements);
+                draw.off('draw.delete', clearMeasurements);
+            }
         };
     }, [map, draw]);
 
