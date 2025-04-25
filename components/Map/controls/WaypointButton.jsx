@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import mapboxgl from 'mapbox-gl';
 import Modal from 'react-modal';
 
 // Ensure accessibility and visibility for react-modal
@@ -14,17 +15,21 @@ if (typeof window !== 'undefined') {
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMapMarkerAlt, faTrash, faSave } from '@fortawesome/free-solid-svg-icons';
 import { WaypointDrawer } from '../controls/WaypointAction';
+import { ConfirmModal } from './ConfirmModal';
 
 export const WaypointButton = ({ map, mapContainerRef }) => {
-  const [isDraggable, setIsDraggable] = useState(false);
+  const [waypointType, setWaypointType] = React.useState('deer');
+  const [isDraggable, setIsDraggable] = React.useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [waypointName, setWaypointName] = useState('');
   const [waypointColor, setWaypointColor] = useState('red');
   const [waypointNotes, setWaypointNotes] = useState('');
+
   const [editFeatureId, setEditFeatureId] = useState(null);
   const [isAddingWaypoint, setIsAddingWaypoint] = useState(false);
   const [pendingWaypointDetails, setPendingWaypointDetails] = useState(null);
   const waypointDrawer = useRef(null);
+  const tempMarkerRef = useRef(null);
 
   useEffect(() => {
     if (map && (!waypointDrawer.current || waypointDrawer.current.map !== map)) {
@@ -46,6 +51,7 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
       setWaypointName(marker.getElement().dataset.name || '');
       setWaypointColor(marker.getElement().dataset.color || 'red');
       setWaypointNotes(marker.getElement().dataset.notes || '');
+      
       setIsModalOpen(true);
     };
     // Clean up callbacks on unmount
@@ -62,7 +68,29 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
     setEditFeatureId(null);
     setWaypointName('');
     setWaypointNotes('');
+    
     setIsModalOpen(true);
+    // Place a temporary marker at the map center
+    if (map && !tempMarkerRef.current) {
+      const center = map.getCenter();
+      const markerEl = document.createElement('div');
+      markerEl.className = 'custom-icon-marker';
+      markerEl.style.width = '36px';
+      markerEl.style.height = '48px';
+      markerEl.style.display = 'flex';
+      markerEl.style.alignItems = 'center';
+      markerEl.style.justifyContent = 'center';
+      markerEl.style.zIndex = '10000';
+      markerEl.innerHTML = `
+      <svg width="36" height="48" viewBox="0 0 36 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M18 46C18 46 32 30.5 32 19C32 10.1634 25.8366 4 18 4C10.1634 4 4 10.1634 4 19C4 30.5 18 46 18 46Z" fill="#fff" stroke="${waypointColor}" stroke-width="4"/>
+        <circle cx="18" cy="19" r="7" fill="#fff" stroke="${waypointColor}" stroke-width="4"/>
+      </svg>
+    `;
+      tempMarkerRef.current = new mapboxgl.Marker({ element: markerEl, draggable: isDraggable })
+        .setLngLat(center)
+        .addTo(map);
+    }
   };
 
   const closeModal = () => {
@@ -101,7 +129,6 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
     map.on('click', handleMapClick);
   };
 
-
   const stopAddingWaypoint = () => {
     setIsAddingWaypoint(false);
     waypointDrawer.current.stopDrawingWaypoint();
@@ -125,11 +152,48 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
     }
   };
 
-  const defaultName = `Waypoint ${map ? map.getCenter().lng.toFixed(4) : ''}, ${map ? map.getCenter().lat.toFixed(4) : ''} / ${new Date().toLocaleDateString()}`;
+  const today = new Date();
+  const mmddyyyy = `${today.getMonth()+1}`.padStart(2, '0') + '/' + `${today.getDate()}`.padStart(2, '0') + '/' + today.getFullYear();
+  const defaultName = `Waypoint ${mmddyyyy}`;
+  const [tempLngLat, setTempLngLat] = useState(map ? map.getCenter() : {lng: '', lat: ''});
+  // Keep tempLngLat in sync with marker
+  useEffect(() => {
+    if (!isModalOpen) return;
+    let marker = tempMarkerRef.current;
+    if (!marker) return;
+    // Initial set
+    setTempLngLat(marker.getLngLat());
+    // Handler for drag
+    const onDrag = () => setTempLngLat(marker.getLngLat());
+    marker.on('drag', onDrag);
+    // Handler for move (if not draggable, still update position if changed)
+    const interval = setInterval(() => {
+      if (marker) setTempLngLat(marker.getLngLat());
+    }, 500);
+    return () => {
+      marker.off('drag', onDrag);
+      clearInterval(interval);
+    };
+  }, [isModalOpen]);
 
   React.useEffect(() => {
     console.log('Modal open state:', isModalOpen);
   }, [isModalOpen]);
+
+  React.useEffect(() => {
+    if (tempMarkerRef.current) {
+      const markerEl = tempMarkerRef.current.getElement();
+      markerEl.className = 'custom-icon-marker';
+      markerEl.innerHTML = `
+      <svg width="36" height="48" viewBox="0 0 36 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M18 46C18 46 32 30.5 32 19C32 10.1634 25.8366 4 18 4C10.1634 4 4 10.1634 4 19C4 30.5 18 46 18 46Z" fill="#fff" stroke="${waypointColor}" stroke-width="4"/>
+        <circle cx="18" cy="19" r="7" fill="#fff" stroke="${waypointColor}" stroke-width="4"/>
+      </svg>
+    `;
+    }
+  }, [waypointColor]);
+
+  const [showConfirm, setShowConfirm] = React.useState(false);
 
   return (
     <>
@@ -151,51 +215,90 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
 
       <Modal
         isOpen={isModalOpen}
-        onRequestClose={closeModal}
+        onRequestClose={() => setShowConfirm(true)}
+        aria-label="Waypoint Modal"
         style={{
           overlay: {
             zIndex: 99999,
-            backgroundColor: 'rgba(0,0,0,0.4)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
+            backgroundColor: 'transparent', // No blur or darken
+            pointerEvents: 'none', // allow map interaction
           },
           content: {
-            position: 'relative',
-            inset: 'unset',
-            margin: 'auto',
-            maxWidth: '400px',
-            border: '4px solid red',
+            position: 'absolute',
+            left: '30px',
+            top: '30px',
+            width: '100%',
+            maxWidth: '360px',
+            height: '600px',      // sets a fixed height
+            maxHeight: '80vh',    // sets a maximum height relative to the viewport
+            overflowY: 'auto',    // enables scrolling if content exceeds the height
+            border: 'none',
             zIndex: 100000,
             background: '#fff',
-            padding: '20px',
-            borderRadius: '10px',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)'
+            padding: '24px 22px 20px 22px',
+            borderRadius: '13px',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.18)',
+            pointerEvents: 'auto', // modal itself is interactive
+            fontFamily: "Inter, Segoe UI, Roboto, Arial, sans-serif"
           }
         }}
-        contentLabel="Waypoint Modal"
-        ariaHideApp={false}
-        parentSelector={() => document.body}
       >
-        <h2 style={styles.header}>{editFeatureId ? 'Edit Waypoint' : 'Add Waypoint'}</h2>
-
-        <input
-          type="text"
-          value={waypointName || defaultName}
-          onChange={(e) => setWaypointName(e.target.value)}
-          placeholder="Waypoint Name"
-          style={styles.input}
+        <button
+          onClick={() => setShowConfirm(true)}
+          style={{ position: 'absolute', top: 8, right: 12, border: 'none', background: 'none', fontSize: 22, cursor: 'pointer', color: '#888', zIndex: 100001 }}
+          aria-label="Close Modal"
+        >×</button>
+        <ConfirmModal
+          isOpen={!!showConfirm}
+          message={editFeatureId ? 'Are you sure you want to cancel editing this waypoint?' : 'Are you sure you want to cancel adding this waypoint?'}
+          onConfirm={() => {
+            setShowConfirm(false);
+            if (tempMarkerRef.current) {
+              tempMarkerRef.current.remove();
+              tempMarkerRef.current = null;
+            }
+            closeModal();
+          }}
+          onCancel={() => setShowConfirm(false)}
         />
-
-        <textarea
-          value={waypointNotes}
-          onChange={(e) => setWaypointNotes(e.target.value)}
-          placeholder="Notes (optional)"
-          style={styles.textarea}
-        />
-
-        {/* Color Picker */}
-        <div style={styles.colorWrap}>
+        <div style={{marginBottom:'20px', display:'flex', flexDirection:'column', alignItems:'center'}}>
+          <label htmlFor="waypoint-name" style={{fontWeight:700, fontSize:'1.13rem', marginBottom:8, display:'block', letterSpacing:'-0.5px', fontFamily:'inherit'}}>Waypoint Name</label>
+          <input
+            id="waypoint-name"
+            type="text"
+            value={waypointName || defaultName}
+            onChange={(e) => setWaypointName(e.target.value)}
+            placeholder="Waypoint Name"
+            style={{
+              ...styles.input,
+              fontWeight:600,
+              fontSize:'1.22rem',
+              padding:'12px 10px',
+              border:'1.5px solid #c8c8c8',
+              marginBottom:0,
+              width:'100%',
+              maxWidth:400,
+              fontFamily:'inherit',
+              textAlign:'center',
+              borderRadius:'8px',
+              boxShadow:'0 1px 8px 0 rgba(0,0,0,0.03)'
+            }}
+          />
+        </div>
+        <div style={{height:16}} />
+        <div style={{marginBottom:'18px'}}>
+          <label htmlFor="waypoint-notes" style={{fontWeight:600, fontSize:'1rem', marginBottom:4, display:'block'}}>Notes</label>
+          <textarea
+            id="waypoint-notes"
+            value={waypointNotes}
+            onChange={(e) => setWaypointNotes(e.target.value)}
+            placeholder="Notes (optional)"
+            style={styles.textarea}
+          />
+        </div>
+        <div style={{height:12}} />
+        <div style={{marginBottom:'7px', fontWeight:600, fontSize:'1rem', letterSpacing:'-0.5px'}}>Color</div>
+        <div style={{...styles.colorWrap, marginBottom:'18px', borderRadius:'6px', background:'#f7f7f7', padding:'7px 6px 3px 6px', border:'1px solid #e0e0e0'}}>
           {["red", "blue", "green", "orange", "purple", "yellow", "black", "#00bcd4", "#ff9800", "#795548"].map((color) => (
             <div
               key={color}
@@ -205,52 +308,47 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
             />
           ))}
         </div>
-
-        {editFeatureId && (
-          <div style={{ margin: '10px 0' }}>
-            <label style={{ fontWeight: 500 }}>
-              <input
-                type="checkbox"
-                checked={isDraggable}
-                onChange={e => {
-                  setIsDraggable(e.target.checked);
-                  if (waypointDrawer.current && editFeatureId) {
-                    waypointDrawer.current.setDraggable(editFeatureId, e.target.checked);
-                  }
-                }}
-                style={{ marginRight: 8 }}
-              />
-              Make waypoint draggable
-            </label>
-          </div>
-        )}
-        {(!editFeatureId) && (
-          <div style={{ margin: '10px 0' }}>
-            <label style={{ fontWeight: 500 }}>
-              <input
-                type="checkbox"
-                checked={isDraggable}
-                onChange={e => setIsDraggable(e.target.checked)}
-                style={{ marginRight: 8 }}
-              />
-              Make waypoint draggable
-            </label>
-          </div>
-        )}
+        <div style={{height:12}} />
+        <div style={{ margin: '10px 0', display:'flex', alignItems:'center', gap:'10px' }}>
+          <label style={{ fontWeight: 500, display:'flex', alignItems:'center', gap:'6px' }}>
+            <input
+              type="checkbox"
+              checked={isDraggable}
+              onChange={e => {
+                setIsDraggable(e.target.checked);
+                if (tempMarkerRef.current) {
+                  tempMarkerRef.current.setDraggable(e.target.checked);
+                }
+              }}
+              style={{ marginRight: 8 }}
+            />
+            <span>Draggable</span>
+          </label>
+          <span style={{fontSize:'0.97em', color:'#888', fontWeight:400, marginLeft:'10px', minWidth:180}}>
+            {`Lng: ${tempLngLat.lng ? tempLngLat.lng.toFixed(6) : '--'}  |  Lat: ${tempLngLat.lat ? tempLngLat.lat.toFixed(6) : '--'}`}
+          </span>
+        </div>
+        <div style={{height:18}} />
         <div style={styles.buttonGroup}>
           <button
-            style={styles.saveButton}
+            style={{...styles.saveButton, fontSize:'1.13rem', fontWeight:600, padding:'13px', marginBottom:'6px', fontFamily:'inherit'}}
             onClick={() => {
               if (editFeatureId) {
                 handleSaveEdit();
               } else {
                 const nameToUse = waypointName && waypointName.trim() ? waypointName : defaultName;
                 if (map && waypointDrawer.current) {
-                  const center = map.getCenter();
-                  waypointDrawer.current.addWaypoint(center, nameToUse, waypointColor, waypointNotes);
+                  let lngLat = map.getCenter();
+                  if (tempMarkerRef.current) {
+                    lngLat = tempMarkerRef.current.getLngLat();
+                    tempMarkerRef.current.remove();
+                    tempMarkerRef.current = null;
+                  }
+                  waypointDrawer.current.addWaypoint(lngLat, nameToUse, waypointColor, waypointNotes);
                   setWaypointName('');
                   setWaypointNotes('');
                   setWaypointColor('red');
+                  setWaypointType('deer');
                   setIsModalOpen(false);
                 } else {
                   alert('Map not ready');
@@ -260,14 +358,15 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
           >
             <FontAwesomeIcon icon={faSave} style={{ marginRight: 8 }} /> {editFeatureId ? 'Save Changes' : 'Add Waypoint'}
           </button>
+          <button
+            style={{...styles.deleteButton, background:'#eee', color:'#444', border:'1px solid #ccc', fontWeight:500, marginTop:0, fontFamily:'inherit'}}
+            onClick={() => setShowConfirm(true)}
+          >Cancel</button>
           {editFeatureId && (
             <button style={styles.deleteButton} onClick={handleDelete}>
               <FontAwesomeIcon icon={faTrash} style={{ marginRight: 8 }} /> Delete
             </button>
           )}
-          <button style={styles.cancelButton} onClick={closeModal}>
-            Cancel
-          </button>
         </div>
       </Modal>
     </>

@@ -59,12 +59,12 @@ const LineMeasure = ({ map, draw }) => {
                 const points = [];
                 const labels = [];
                 let totalFeet = 0;
-            
+                
                 data.features.forEach((line) => {
                     if (line.geometry.type !== 'LineString') return;
-            
+                
                     const coords = line.geometry.coordinates;
-            
+                
                     for (let i = 0; i < coords.length; i++) {
                         points.push({
                             type: 'Feature',
@@ -74,22 +74,19 @@ const LineMeasure = ({ map, draw }) => {
                             },
                             properties: {}
                         });
-            
+                        // For every segment, add a segment label
                         if (i > 0) {
                             const seg = lineString([coords[i - 1], coords[i]]);
                             const distFeet = turfLength(seg, { units: 'kilometers' }) * 3280.84;
                             totalFeet += distFeet;
-            
-                            const mid = [
-                                (coords[i - 1][0] + coords[i][0]) / 2,
-                                (coords[i - 1][1] + coords[i][1]) / 2
-                            ];
-            
+                            // Add segment label at midpoint
+                            const midLng = (coords[i - 1][0] + coords[i][0]) / 2;
+                            const midLat = (coords[i - 1][1] + coords[i][1]) / 2;
                             labels.push({
                                 type: 'Feature',
                                 geometry: {
                                     type: 'Point',
-                                    coordinates: mid
+                                    coordinates: [midLng, midLat]
                                 },
                                 properties: {
                                     label: `${distFeet.toFixed(1)} ft`
@@ -97,18 +94,15 @@ const LineMeasure = ({ map, draw }) => {
                             });
                         }
                     }
-            
+                    // After all segments, add a total label at the end
                     if (coords.length > 1) {
                         const lastCoord = coords[coords.length - 1];
-            
-                        // Convert total distance to miles if it exceeds the feet-to-mile threshold
                         let totalDistance = totalFeet;
                         let unit = 'ft';
-                        if (totalFeet >= 5280) { // 1 mile = 5280 feet
+                        if (totalFeet >= 5280) {
                             totalDistance = totalFeet / 5280;
                             unit = 'miles';
                         }
-            
                         labels.push({
                             type: 'Feature',
                             geometry: {
@@ -116,7 +110,7 @@ const LineMeasure = ({ map, draw }) => {
                                 coordinates: lastCoord
                             },
                             properties: {
-                                label: `Total: ${totalDistance >= 5280 ? totalDistance.toFixed(2) : totalDistance.toFixed(1)} ${unit}`
+                                label: `Total: ${totalDistance >= 1 && unit === 'miles' ? totalDistance.toFixed(2) : totalDistance.toFixed(1)} ${unit}`
                             }
                         });
                     }

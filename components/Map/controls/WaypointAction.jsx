@@ -19,26 +19,21 @@ export class WaypointDrawer {
       markerEl.className = 'custom-icon-marker';
       markerEl.innerHTML = `
         <svg width="36" height="48" viewBox="0 0 36 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <!-- Teardrop shape (map pin) with hollow circle -->
           <path d="M18 46C18 46 32 30.5 32 19C32 10.1634 25.8366 4 18 4C10.1634 4 4 10.1634 4 19C4 30.5 18 46 18 46Z" fill="#fff" stroke="${_color}" stroke-width="4"/>
           <circle cx="18" cy="19" r="7" fill="#fff" stroke="${_color}" stroke-width="4"/>
         </svg>
       `;
     }
+
     // Store waypoint data as attributes for editing
     if (markerEl) {
       markerEl.dataset.name = name || '';
       markerEl.dataset.color = _color || '';
       markerEl.dataset.notes = notes || '';
+      markerEl.dataset.id = `waypoint-${Date.now()}-${Math.floor(Math.random()*100000)}`;
     }
-    // Assign a unique id to the marker element and instance
-    const markerId = `waypoint-${Date.now()}-${Math.floor(Math.random()*100000)}`;
-    if (markerEl) {
-      markerEl.dataset.name = name || '';
-      markerEl.dataset.color = _color || '';
-      markerEl.dataset.notes = notes || '';
-      markerEl.dataset.id = markerId;
-    }
+
+    const markerId = markerEl ? markerEl.dataset.id : `waypoint-${Date.now()}-${Math.floor(Math.random()*100000)}`;
     const marker = new mapboxgl.Marker({ element: markerEl || undefined, draggable: false })
       .setLngLat(lngLat)
       .addTo(this.map);

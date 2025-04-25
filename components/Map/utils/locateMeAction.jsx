@@ -8,21 +8,24 @@ let isLocating = false;
 export async function locateAndMarkUser(map) {
   if (!navigator.geolocation || !map || isLocating) return;
 
+  // If there's an existing marker, remove it and return
+  if (userMarkerRef) {
+    userMarkerRef.remove();
+    userMarkerRef = null;
+    isLocating = false;
+    return;
+  }
+
   isLocating = true;
 
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       const { latitude, longitude } = pos.coords;
 
-      // Remove previous marker
-      if (userMarkerRef) {
-        userMarkerRef.remove();
-      }
-
       // Use a custom marker: dot with direction arrow
       const markerEl = document.createElement('div');
-      markerEl.style.width = '24px';
-      markerEl.style.height = '24px';
+      markerEl.style.width = '14px';
+      markerEl.style.height = '14px';
       markerEl.style.borderRadius = '50%';
       markerEl.style.background = '#007bff';
       markerEl.style.border = '2px solid #fff';

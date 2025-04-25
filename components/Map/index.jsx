@@ -11,6 +11,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { LocateMeButton } from './controls/LocateMeButton';
 import ZoomControl from './controls/ZoomControl';
 import { WaypointButton } from './controls/WaypointButton';
+import { CrosshairToggle } from './controls/CrosshairToggle';
 import { WaypointDrawer } from './controls/WaypointAction';
 import { length as turfLength, point, lineString } from '@turf/turf';
 import  LineMeasure from './controls/LineMeasure';
@@ -88,8 +89,15 @@ const Map = () => {
                 initialMap.removeControl(ctrl);
               } catch (e) {}
             }
+            // Remove any GeolocateControl if present
+            if (ctrl && ctrl.constructor && ctrl.constructor.name === 'GeolocateControl') {
+              try {
+                initialMap.removeControl(ctrl);
+              } catch (e) {}
+            }
           }
         }
+        // Add MapboxDraw control to the map, but with no default controls
         initialMap.addControl(drawControl);
         setDraw(drawControl);
         // Remove any extra MapboxDraw control buttons (if present)
@@ -295,6 +303,7 @@ const Map = () => {
                     {/* All overlays moved inside mapContainer for correct stacking */}
                     
                     <LocateMeButton map={map} />
+                    <CrosshairToggle mapContainerRef={mapContainer} />
                     {draw && map && (
                       <>
                         <DrawingToolbar draw={draw} map={map} mapContainerRef={mapContainer} />
@@ -375,7 +384,7 @@ const Map = () => {
                         bottom: '110px', // Just above coord box
                         left: '10px',
                         zIndex: 4, // Ensure above info box
-                        backgroundColor: 'rgba(0, 0, 0, 0.70)', // semi-transparent
+                        backgroundColor: 'rgba(24,24,24,0.75)', // match CrosshairToggle
                         color: '#fff',
                         padding: '6px 10px', // Smaller
                         borderRadius: '6px',
@@ -389,20 +398,46 @@ const Map = () => {
                         transformOrigin: 'unset',
                     }}
                 >
-                    <input
-                        type="checkbox"
-                        id="toggleVisibility"
-                        checked={infoVisible}
-                        onChange={(e) => setInfoVisible(e.target.checked)}
-                        style={{
-                            width: '16px',
-                            height: '16px',
-                            accentColor: '#00bfff',
+                    <label htmlFor="toggleVisibility" style={{ display: 'flex', alignItems: 'center', gap: 12, fontWeight: 500, fontSize: 15, cursor: 'pointer', userSelect: 'none', color: '#fff' }}>
+                      <span style={{ position: 'relative', display: 'inline-block', width: 38, height: 22 }}>
+                        <input
+                          type="checkbox"
+                          id="toggleVisibility"
+                          checked={infoVisible}
+                          onChange={e => setInfoVisible(e.target.checked)}
+                          style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
+                          aria-label="Toggle coordinates visibility"
+                        />
+                        <span
+                          style={{
+                            position: 'absolute',
                             cursor: 'pointer',
-                        }}
-                    />
-                    <label htmlFor="toggleVisibility" style={{ cursor: 'pointer' }}>
-                        Show Coordinates
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            background: infoVisible ? '#007bff' : '#444',
+                            transition: 'background 0.2s',
+                            borderRadius: 22,
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+                          }}
+                        />
+                        <span
+                          style={{
+                            position: 'absolute',
+                            left: infoVisible ? 18 : 2,
+                            top: 2,
+                            width: 18,
+                            height: 18,
+                            background: '#fff',
+                            borderRadius: '50%',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.18)',
+                            transition: 'left 0.2s',
+                            border: '1px solid #eee',
+                          }}
+                        />
+                      </span>
+                      <span>Show Coordinates</span>
                     </label>
                 </div>
             </div>
