@@ -6,9 +6,10 @@ import { faTrash } from '@fortawesome/free-solid-svg-icons';
 
 import { WaypointButton } from './WaypointButton';
 import LineButton from './Line';
+
 import AreaButton from './Area';
 
-export const DrawingToolbar = ({ draw, map, mapContainerRef }) => {
+export const DrawingToolbar = ({ draw, map, mapContainerRef, onLineButtonClick }) => {
   const activateTool = (tool) => {
     if (!map || !draw) return;
     if (tool === 'trash') {
@@ -74,7 +75,7 @@ export const DrawingToolbar = ({ draw, map, mapContainerRef }) => {
       {/* 🔹 Modular Buttons */}
 
       <WaypointButton map={map} mapContainerRef={mapContainerRef} />
-      <LineButton activateTool={activateTool} />
+      <LineButton onLineButtonClick={onLineButtonClick} />
       <AreaButton activateTool={activateTool} />
 
       {/* 🗑️ Delete button */}

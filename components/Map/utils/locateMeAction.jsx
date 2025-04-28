@@ -41,7 +41,7 @@ export async function locateAndMarkUser(map) {
       `;
       cone.style.position = 'absolute';
       cone.style.left = '50%';
-      cone.style.top = '-28px';
+      cone.style.top = '-12px';
       cone.style.transform = 'translateX(-50%)';
       cone.style.pointerEvents = 'none';
       cone.style.zIndex = '1';

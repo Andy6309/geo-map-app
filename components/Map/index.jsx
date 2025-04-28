@@ -15,11 +15,13 @@ import { CrosshairToggle } from './controls/CrosshairToggle';
 import { WaypointDrawer } from './controls/WaypointAction';
 import { length as turfLength, point, lineString } from '@turf/turf';
 import  LineMeasure from './controls/LineMeasure';
+import LineModal from './controls/LineModal';
 
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
 const Map = () => {
+    const [infoVisible, setInfoVisible] = useState(true);
     const mapContainer = useRef(null);
     const geocoderContainerRef = useRef(null);
     const markerRef = useRef(null);
@@ -28,7 +30,102 @@ const Map = () => {
     const [mapBearing, setMapBearing] = useState(0);
     const [mapPitch, setMapPitch] = useState(0);
     const [draw, setDraw] = useState(null);
-    const [infoVisible, setInfoVisible] = useState(true);
+
+
+
+
+
+
+
+
+
+
+    // --- Line Modal State ---
+    const [isLineModalOpen, setLineModalOpen] = useState(false);
+    const [lineModalSegments, setLineModalSegments] = useState([]); // Live segment distances
+    const [lineModalTotal, setLineModalTotal] = useState('0 ft'); // Live total distance
+    const [lineModalColor, setLineModalColor] = useState('#e53935');
+    const [lineModalName, setLineModalName] = useState("");
+    const [lineModalNotes, setLineModalNotes] = useState("");
+
+    // Handler for Line button in toolbar
+    const handleLineButtonClick = () => {
+        if (draw && map) {
+            setLineModalOpen(true);
+            setLineModalSegments([]);
+            setLineModalTotal('0 ft');
+            setLineModalColor('#e53935');
+            setLineModalName("");
+            setLineModalNotes("");
+            // Delay draw mode activation until after modal is open to avoid focus issues
+            setTimeout(() => {
+                draw.changeMode('draw_line_string');
+                if (typeof draw.getMode === 'function') {
+                  console.log('[DEBUG] Draw mode after modal open:', draw.getMode());
+                }
+            }, 100);
+        }
+    };
+
+
+    // Handler for saving the line
+    const handleLineModalSave = (color, name, notes) => {
+        // Save the drawn line (could persist or move to static layer)
+        setLineModalOpen(false);
+        setLineModalSegments([]);
+        setLineModalTotal('0 ft');
+        setLineModalColor('#e53935');
+        setLineModalName("");
+        setLineModalNotes("");
+        if (draw) {
+            // Optionally set style or metadata
+            draw.changeMode('simple_select');
+        }
+    };
+
+    // Handler for closing/canceling the modal
+    const handleLineModalClose = () => {
+        setLineModalOpen(false);
+        setLineModalSegments([]);
+        setLineModalTotal('0 ft');
+        setLineModalColor('#e53935');
+        setLineModalName("");
+        setLineModalNotes("");
+        if (draw) {
+            // Remove all drawn lines (pending)
+            const all = draw.getAll();
+            if (all && all.features && all.features.length > 0) {
+                all.features.filter(f => f.geometry.type === 'LineString').forEach(f => draw.delete(f.id));
+            }
+            draw.changeMode('simple_select');
+        }
+    };
+
+    // --- Sync live measurements from LineMeasure.jsx ---
+    // Render LineMeasure and update modal state via onUpdate
+    // This must be inside the component render:
+    {isLineModalOpen && (
+        <LineMeasure 
+            map={map} 
+            draw={draw} 
+            onUpdate={(segments, total) => { 
+                setLineModalSegments(segments); 
+                setLineModalTotal(total); 
+            }} 
+        />
+    )}
+    // <LineMeasure map={map} draw={draw} onUpdate={(segments, total) => { setLineModalSegments(segments); setLineModalTotal(total); }} />
+
+
+
+
+
+
+
+
+
+
+
 
     useEffect(() => {
         const initialMap = new mapboxgl.Map({
@@ -39,9 +136,10 @@ const Map = () => {
         });
 
         // Restore original MapboxDraw setup: NO built-in controls, only custom toolbar
+        // Custom MapboxDraw instance: Make all Draw layers fully transparent to hide default lines/points
         const drawControl = new MapboxDraw({
             displayControlsDefault: false,
-            controls: {}, // No built-in controls
+            controls: {},
             styles: [
                 {
                     id: 'gl-draw-line',
@@ -52,7 +150,7 @@ const Map = () => {
                         'line-join': 'round'
                     },
                     paint: {
-                        'line-color': '#ff6600',
+                        'line-color': 'rgba(0,0,0,0)', // Hide default line
                         'line-width': 4
                     }
                 },
@@ -65,7 +163,7 @@ const Map = () => {
                         'line-join': 'round'
                     },
                     paint: {
-                        'line-color': '#333',
+                        'line-color': 'rgba(0,0,0,0)', // Hide default static line
                         'line-width': 3
                     }
                 },
@@ -75,7 +173,35 @@ const Map = () => {
                     filter: ['all', ['==', '$type', 'Point'], ['!=', 'meta', 'midpoint']],
                     paint: {
                         'circle-radius': 6,
-                        'circle-color': '#ff6600'
+                        'circle-color': 'rgba(0,0,0,0)' // Hide default points
+                    }
+                },
+                // Hide all other Draw layers (midpoints, vertex previews, etc.)
+                {
+                    id: 'gl-draw-midpoint',
+                    type: 'circle',
+                    filter: ['all', ['==', '$type', 'Point'], ['==', 'meta', 'midpoint']],
+                    paint: {
+                        'circle-radius': 6,
+                        'circle-color': 'rgba(0,0,0,0)'
+                    }
+                },
+                {
+                    id: 'gl-draw-vertex-halo-active',
+                    type: 'circle',
+                    filter: ['all', ['==', '$type', 'Point'], ['==', 'meta', 'vertex-halo'], ['==', 'active', 'true']],
+                    paint: {
+                        'circle-radius': 12,
+                        'circle-color': 'rgba(0,0,0,0)'
+                    }
+                },
+                {
+                    id: 'gl-draw-vertex-active',
+                    type: 'circle',
+                    filter: ['all', ['==', '$type', 'Point'], ['==', 'meta', 'vertex'], ['==', 'active', 'true']],
+                    paint: {
+                        'circle-radius': 8,
+                        'circle-color': 'rgba(0,0,0,0)'
                     }
                 }
             ]
@@ -97,17 +223,17 @@ const Map = () => {
             }
           }
         }
-        // Add MapboxDraw control to the map, but with no default controls
-        initialMap.addControl(drawControl);
-        setDraw(drawControl);
-        // Remove any extra MapboxDraw control buttons (if present)
-        const drawControls = document.querySelector('.mapbox-gl-draw_ctrl-draw-btns');
-        if (drawControls) drawControls.remove();
-
+        // Add MapboxDraw control to the map ONLY after map is fully loaded
         initialMap.on('rotate', () => setMapBearing(initialMap.getBearing()));
         initialMap.on('pitch', () => setMapPitch(initialMap.getPitch()));
 
         initialMap.once('load', () => {
+            initialMap.addControl(drawControl);
+            setDraw(drawControl);
+            // Remove any extra MapboxDraw control buttons (if present)
+            setTimeout(() => {
+              document.querySelectorAll('.mapbox-gl-draw_ctrl-draw-btns, .mapbox-gl-draw_ctrl-top-right, .mapbox-gl-draw_ctrl-group').forEach(el => el.remove());
+            }, 200);
             setupGeocoder(initialMap, geocoderContainerRef); // Set up geocoder
             trackMousePosition(initialMap, true); // Track mouse position
             waypointDrawerRef.current = new WaypointDrawer(initialMap, drawControl); // Setup waypoint drawer
@@ -305,11 +431,34 @@ const Map = () => {
                     <LocateMeButton map={map} />
                     <CrosshairToggle mapContainerRef={mapContainer} />
                     {draw && map && (
-                      <>
-                        <DrawingToolbar draw={draw} map={map} mapContainerRef={mapContainer} />
-                        <LineMeasure map={map} draw={draw} />
-                      </>
-                    )}
+  <>
+    <DrawingToolbar draw={draw} map={map} mapContainerRef={mapContainer} onLineButtonClick={handleLineButtonClick} />
+    {isLineModalOpen && (
+      <LineMeasure
+        map={map}
+        draw={draw}
+        onUpdate={(segments, total) => {
+          setLineModalSegments(segments);
+          setLineModalTotal(total);
+          if (draw && typeof draw.getAll === 'function') {
+            console.log('[DEBUG] LineMeasure onUpdate draw features:', draw.getAll());
+          }
+        }}
+      />
+    )}
+    <LineModal
+      isOpen={isLineModalOpen}
+      onClose={handleLineModalClose}
+      onSave={handleLineModalSave}
+      totalDistance={lineModalTotal}
+      segments={lineModalSegments}
+      notes={lineModalNotes}
+      setNotes={setLineModalNotes}
+      initialColor={lineModalColor}
+      initialName={lineModalName}
+    />
+  </>
+)}
                     <ZoomControl map={map} />
 
                     <div

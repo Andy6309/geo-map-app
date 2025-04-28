@@ -4,7 +4,7 @@ import React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRoute } from '@fortawesome/free-solid-svg-icons';
 
-const Line = ({ activateTool }) => {
+const Line = ({ onLineButtonClick }) => {
     const buttonStyle = {
         backgroundColor: 'white',
         border: '1px solid #007bff',
@@ -21,7 +21,7 @@ const Line = ({ activateTool }) => {
 
     return (
         <button
-            onClick={() => activateTool('draw_line_string')}
+            onClick={onLineButtonClick}
             style={buttonStyle}
             onMouseEnter={(e) => {
                 e.target.style.backgroundColor = '#f0f0f0'; // Light grey background on hover

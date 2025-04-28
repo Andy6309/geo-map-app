@@ -2,11 +2,39 @@
 import { useEffect } from 'react';
 import { lineString, length as turfLength } from '@turf/turf';
 
-const LineMeasure = ({ map, draw }) => {
+console.log('Custom LineMeasure in use');
+const LineMeasure = ({ map, draw, onUpdate }) => {
     useEffect(() => {
         if (!map || !draw) return;
 
         const onMapLoad = () => {
+            // Add custom line source/layer FIRST
+            if (!map.getSource('custom-line')) {
+                map.addSource('custom-line', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: [] }
+                });
+                map.addLayer({
+                    id: 'custom-line-layer',
+                    type: 'line',
+                    source: 'custom-line',
+                    layout: {
+                        'line-cap': 'round',
+                        'line-join': 'round'
+                    },
+                    paint: {
+                        'line-color': '#ff6600', // Make this dynamic if needed
+                        'line-width': 4
+                    }
+                });
+            }
+            // Always move custom line layer above basemap (but below points/labels)
+            if (map.getLayer('custom-line-layer')) {
+                if (map.getLayer('vertex-points-layer')) {
+                    map.moveLayer('custom-line-layer', 'vertex-points-layer');
+                }
+            }
+
             // Add vertex point source/layer
             if (!map.getSource('vertex-points')) {
                 map.addSource('vertex-points', {
@@ -56,15 +84,19 @@ const LineMeasure = ({ map, draw }) => {
             const updateLiveMeasurements = () => {
                 if (!draw || typeof draw.getAll !== 'function') return;
                 const data = draw.getAll();
+                console.log('LineMeasure updateLiveMeasurements features:', data.features);
+
                 const points = [];
                 const labels = [];
                 let totalFeet = 0;
                 
+                let segments = [];
+                let totalYards = 0;
                 data.features.forEach((line) => {
                     if (line.geometry.type !== 'LineString') return;
-                
+
                     const coords = line.geometry.coordinates;
-                
+
                     for (let i = 0; i < coords.length; i++) {
                         points.push({
                             type: 'Feature',
@@ -74,11 +106,12 @@ const LineMeasure = ({ map, draw }) => {
                             },
                             properties: {}
                         });
-                        // For every segment, add a segment label
+                        // For every segment, add a segment label in yards
                         if (i > 0) {
                             const seg = lineString([coords[i - 1], coords[i]]);
-                            const distFeet = turfLength(seg, { units: 'kilometers' }) * 3280.84;
-                            totalFeet += distFeet;
+                            const distYards = turfLength(seg, { units: 'kilometers' }) * 1093.6133;
+                            totalYards += distYards;
+                            segments.push(`${distYards.toFixed(1)} yd`);
                             // Add segment label at midpoint
                             const midLng = (coords[i - 1][0] + coords[i][0]) / 2;
                             const midLat = (coords[i - 1][1] + coords[i][1]) / 2;
@@ -89,7 +122,7 @@ const LineMeasure = ({ map, draw }) => {
                                     coordinates: [midLng, midLat]
                                 },
                                 properties: {
-                                    label: `${distFeet.toFixed(1)} ft`
+                                    label: `${distYards.toFixed(1)} yd`
                                 }
                             });
                         }
@@ -97,11 +130,11 @@ const LineMeasure = ({ map, draw }) => {
                     // After all segments, add a total label at the end
                     if (coords.length > 1) {
                         const lastCoord = coords[coords.length - 1];
-                        let totalDistance = totalFeet;
-                        let unit = 'ft';
-                        if (totalFeet >= 5280) {
-                            totalDistance = totalFeet / 5280;
-                            unit = 'miles';
+                        let totalLabel = '';
+                        if (totalYards >= 1760) {
+                            totalLabel = `Total: ${(totalYards / 1760).toFixed(2)} mi`;
+                        } else {
+                            totalLabel = `Total: ${totalYards.toFixed(1)} yd`;
                         }
                         labels.push({
                             type: 'Feature',
@@ -110,21 +143,66 @@ const LineMeasure = ({ map, draw }) => {
                                 coordinates: lastCoord
                             },
                             properties: {
-                                label: `Total: ${totalDistance >= 1 && unit === 'miles' ? totalDistance.toFixed(2) : totalDistance.toFixed(1)} ${unit}`
+                                label: totalLabel
                             }
                         });
                     }
                 });
-            
+
+                // Update custom line source with a single LineString (if any)
+                let lineFeature = data.features.find(f => f.geometry.type === 'LineString');
+                if (!lineFeature) {
+                    // If only one point exists, create a degenerate LineString for feedback
+                    const allPoints = data.features.filter(f => f.geometry.type === 'Point');
+                    if (allPoints.length === 1) {
+                        lineFeature = {
+                            type: 'Feature',
+                            geometry: {
+                                type: 'LineString',
+                                coordinates: [allPoints[0].geometry.coordinates, allPoints[0].geometry.coordinates]
+                            },
+                            properties: {}
+                        };
+                    }
+                }
+                if (lineFeature) {
+                    map.getSource('custom-line')?.setData({
+                        type: 'FeatureCollection',
+                        features: [lineFeature]
+                    });
+                } else {
+                    map.getSource('custom-line')?.setData({
+                        type: 'FeatureCollection',
+                        features: []
+                    });
+                }
+                // Ensure custom line layer is above the basemap but below points/labels
+                if (map.getLayer('custom-line-layer')) {
+                    if (map.getLayer('vertex-points-layer')) {
+                        map.moveLayer('custom-line-layer', 'vertex-points-layer');
+                    }
+                }
+
                 map.getSource('vertex-points')?.setData({
                     type: 'FeatureCollection',
                     features: points
                 });
-            
+
                 map.getSource('distance-labels')?.setData({
                     type: 'FeatureCollection',
                     features: labels
                 });
+
+                // Call onUpdate with live segments and total (for modal)
+                if (typeof onUpdate === 'function') {
+                    let totalDisplay = '';
+                    if (totalYards >= 1760) {
+                        totalDisplay = `${(totalYards / 1760).toFixed(2)} mi`;
+                    } else {
+                        totalDisplay = `${totalYards.toFixed(1)} yd`;
+                    }
+                    onUpdate(segments, totalDisplay);
+                }
             };
 
             const clearMeasurements = () => {
@@ -134,11 +212,23 @@ const LineMeasure = ({ map, draw }) => {
             };
 
             if (draw && typeof draw.on === 'function') {
-                draw.on('draw.create', updateLiveMeasurements);
-                draw.on('draw.update', updateLiveMeasurements);
-                draw.on('draw.render', updateLiveMeasurements);
-                draw.on('draw.selectionchange', updateLiveMeasurements);
-                draw.on('draw.delete', clearMeasurements);
+                draw.on('draw.create', (e) => {
+                    console.log('[DEBUG] draw.create', e, draw.getAll());
+                    updateLiveMeasurements();
+                });
+                draw.on('draw.update', (e) => {
+                    console.log('[DEBUG] draw.update', e, draw.getAll());
+                    console.log('[DEBUG] draw.render', e);
+                    updateLiveMeasurements();
+                });
+                draw.on('draw.selectionchange', (e) => {
+                    console.log('[DEBUG] draw.selectionchange', e);
+                    updateLiveMeasurements();
+                });
+                draw.on('draw.delete', (e) => {
+                    console.log('[DEBUG] draw.delete', e);
+                    clearMeasurements();
+                });
             }
         };
 

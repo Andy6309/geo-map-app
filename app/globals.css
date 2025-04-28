@@ -7,6 +7,14 @@ html, body, #__next {
   overflow: hidden;
 }
 
+/* Show hand cursor when grabbing the map */
+.mapboxgl-canvas {
+  cursor: grab !important;
+}
+.mapboxgl-canvas:active {
+  cursor: grabbing !important;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
