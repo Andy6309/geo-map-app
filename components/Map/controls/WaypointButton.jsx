@@ -299,14 +299,35 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
         <div style={{height:12}} />
         <div style={{marginBottom:'7px', fontWeight:600, fontSize:'1rem', letterSpacing:'-0.5px'}}>Color</div>
         <div style={{...styles.colorWrap, marginBottom:'18px', borderRadius:'6px', background:'#f7f7f7', padding:'7px 6px 3px 6px', border:'1px solid #e0e0e0'}}>
-          {["red", "blue", "green", "orange", "purple", "yellow", "black", "#00bcd4", "#ff9800", "#795548"].map((color) => (
-            <div
-              key={color}
-              style={styles.colorDot(color, waypointColor)}
-              onClick={() => setWaypointColor(color)}
-              title={color}
-            />
-          ))}
+          {[
+  { label: 'Red', value: '#e53935' },
+  { label: 'Blue', value: '#1976d2' },
+  { label: 'Green', value: '#43a047' },
+  { label: 'Yellow', value: '#fbc02d' },
+  { label: 'Black', value: '#222' },
+].map(opt => (
+  <button
+    key={opt.value}
+    type="button"
+    onClick={() => setWaypointColor(opt.value)}
+    style={{
+      width: 32,
+      height: 32,
+      borderRadius: '50%',
+      background: opt.value,
+      border: waypointColor === opt.value ? '3px solid #222' : '2px solid #fff',
+      outline: waypointColor === opt.value ? '2px solid #1976d2' : 'none',
+      boxShadow: waypointColor === opt.value ? '0 2px 8px rgba(0,0,0,0.18)' : '0 1px 4px rgba(0,0,0,0.09)',
+      cursor: 'pointer',
+      padding: 0,
+      display: 'inline-block',
+      transition: 'border 0.2s, outline 0.2s',
+      marginRight: 8,
+    }}
+    aria-label={opt.label}
+    title={opt.label}
+  />
+))}
         </div>
         <div style={{height:12}} />
         <div style={{ margin: '10px 0', display:'flex', alignItems:'center', gap:'10px' }}>

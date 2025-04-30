@@ -3,10 +3,60 @@ import { useEffect } from 'react';
 import { lineString, length as turfLength } from '@turf/turf';
 
 console.log('Custom LineMeasure in use');
-const LineMeasure = ({ map, draw, onUpdate }) => {
+const LineMeasure = ({ map, draw, onUpdate, lineColor = '#e53935' }) => {
     useEffect(() => {
         if (!map || !draw) return;
 
+        // Helper to update the custom line source/layer and modal state
+        const updateLiveLine = () => {
+            if (!draw || typeof draw.getAll !== 'function') return;
+            const data = draw.getAll();
+            const lineFeature = data.features.find(f => f.geometry.type === 'LineString');
+            if (!lineFeature) {
+                // No line being drawn
+                if (map.getSource('custom-line')) {
+                    map.getSource('custom-line').setData({ type: 'FeatureCollection', features: [] });
+                }
+                if (map.getSource('vertex-points')) {
+                    map.getSource('vertex-points').setData({ type: 'FeatureCollection', features: [] });
+                }
+                if (onUpdate) onUpdate([], '0 ft');
+                return;
+            }
+            // Update custom line source
+            if (map.getSource('custom-line')) {
+                map.getSource('custom-line').setData({ type: 'FeatureCollection', features: [lineFeature] });
+            }
+            // Update vertex points
+            const coords = lineFeature.geometry.coordinates || [];
+            if (map.getSource('vertex-points')) {
+                map.getSource('vertex-points').setData({
+                    type: 'FeatureCollection',
+                    features: coords.map(coord => ({
+                        type: 'Feature',
+                        geometry: { type: 'Point', coordinates: coord },
+                        properties: {}
+                    }))
+                });
+            }
+            // Calculate segment distances and total
+            let segments = [];
+            let total = 0;
+            for (let i = 1; i < coords.length; i++) {
+                const seg = lineString([coords[i - 1], coords[i]]);
+                const dist = turfLength(seg, { units: 'miles' });
+                segments.push({
+                    from: coords[i - 1],
+                    to: coords[i],
+                    distance: dist
+                });
+                total += dist;
+            }
+            const totalFeet = (total * 5280).toFixed(1);
+            if (onUpdate) onUpdate(segments, `${totalFeet} ft`);
+        };
+
+        // Add custom line source/layer FIRST
         const onMapLoad = () => {
             // Add custom line source/layer FIRST
             if (!map.getSource('custom-line')) {
@@ -23,7 +73,7 @@ const LineMeasure = ({ map, draw, onUpdate }) => {
                         'line-join': 'round'
                     },
                     paint: {
-                        'line-color': '#ff6600', // Make this dynamic if needed
+                        'line-color': lineColor,
                         'line-width': 4
                     }
                 });
@@ -48,7 +98,7 @@ const LineMeasure = ({ map, draw, onUpdate }) => {
                     source: 'vertex-points',
                     paint: {
                         'circle-radius': 5,
-                        'circle-color': '#007bff',
+                        'circle-color': lineColor,
                         'circle-stroke-width': 1,
                         'circle-stroke-color': '#fff'
                     }
@@ -236,19 +286,25 @@ const LineMeasure = ({ map, draw, onUpdate }) => {
             map.once('load', onMapLoad);
         } else {
             onMapLoad();
-        }
-
-        return () => {
-            if (draw && typeof draw.off === 'function') {
-                draw.off('draw.create', updateLiveMeasurements);
-                draw.off('draw.update', updateLiveMeasurements);
-                draw.off('draw.render', updateLiveMeasurements);
-                draw.off('draw.selectionchange', updateLiveMeasurements);
-                draw.off('draw.delete', clearMeasurements);
-            }
         };
-    }, [map, draw]);
 
+        // Listen for draw.create, draw.update, draw.selectionchange, draw.delete events
+        map.on('draw.create', updateLiveLine);
+        map.on('draw.update', updateLiveLine);
+        map.on('draw.selectionchange', updateLiveLine);
+        map.on('draw.delete', updateLiveLine);
+        // Also update on map click (to catch vertex additions)
+        map.on('click', updateLiveLine);
+        // Initial update
+        updateLiveLine();
+        return () => {
+            map.off('draw.create', updateLiveLine);
+            map.off('draw.update', updateLiveLine);
+            map.off('draw.selectionchange', updateLiveLine);
+            map.off('draw.delete', updateLiveLine);
+            map.off('click', updateLiveLine);
+        };
+    }, [map, draw, onUpdate]);
     return null; // This component doesn't render anything directly
 };
 

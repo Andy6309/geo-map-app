@@ -48,8 +48,8 @@ const colorOptions = [
   { label: 'Red', value: '#e53935' },
   { label: 'Blue', value: '#1976d2' },
   { label: 'Green', value: '#43a047' },
-  { label: 'Orange', value: '#fbc02d' },
-  { label: 'Purple', value: '#8e24aa' },
+  { label: 'Yellow', value: '#fbc02d' },
+  { label: 'Black', value: '#222' },
 ];
 
 console.log('Custom LineModal in use');
@@ -158,8 +158,10 @@ export default function LineModal({
         <div style={{ fontWeight: 600, marginBottom: 6 }}>Segments:</div>
         <ul style={{ paddingLeft: 18, margin: 0, fontSize: '1rem' }}>
           {segments && segments.length > 0 ? segments.map((seg, i) => (
-            <li key={i}>Segment {i + 1}: <span style={{ color: '#555' }}>{seg}</span></li>
-          )) : <li style={{ color: '#aaa' }}>No segments yet</li>}
+              <li key={i}>
+                Segment {i + 1}: <span style={{ color: '#555' }}>{seg.distance ? `${(seg.distance * 5280).toFixed(1)} ft` : ''}</span>
+              </li>
+            )) : <li style={{ color: '#aaa' }}>No segments yet</li>}
         </ul>
       </div>
       <div style={{marginBottom:'7px', fontWeight:600, fontSize:'1rem', letterSpacing:'-0.5px'}}>Color</div>

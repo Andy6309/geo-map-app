@@ -1,5 +1,5 @@
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import { styles } from './styles';
@@ -7,6 +7,7 @@ import { setupGeocoder } from './geocoder';
 import { trackMousePosition } from './utils/mouseTracker';
 import { CompassButton } from './controls/CompassButton';
 import { DrawingToolbar } from './controls/DrawingToolbar';
+import AreaModal from './controls/AreaModal';
 import { Analytics } from '@vercel/analytics/react';
 import { LocateMeButton } from './controls/LocateMeButton';
 import ZoomControl from './controls/ZoomControl';
@@ -15,12 +16,16 @@ import { CrosshairToggle } from './controls/CrosshairToggle';
 import { WaypointDrawer } from './controls/WaypointAction';
 import { length as turfLength, point, lineString } from '@turf/turf';
 import  LineMeasure from './controls/LineMeasure';
+import AreaMeasure from './controls/AreaMeasure';
 import LineModal from './controls/LineModal';
 
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
 const Map = () => {
+    // --- Persistent drawn features ---
+    const [savedLines, setSavedLines] = useState([]); // Array of GeoJSON features
+    const [savedAreas, setSavedAreas] = useState([]); // Array of GeoJSON features
     const [infoVisible, setInfoVisible] = useState(true);
     const mapContainer = useRef(null);
     const geocoderContainerRef = useRef(null);
@@ -31,22 +36,89 @@ const Map = () => {
     const [mapPitch, setMapPitch] = useState(0);
     const [draw, setDraw] = useState(null);
 
-
-
-
-
-
-
-
-
-
     // --- Line Modal State ---
     const [isLineModalOpen, setLineModalOpen] = useState(false);
+
+    // --- Area Modal State ---
+    const [isAreaModalOpen, setAreaModalOpen] = useState(false);
+    const [areaModalTotal, setAreaModalTotal] = useState(0); // acres
+    const [areaModalSegments, setAreaModalSegments] = useState([]);
+    const [areaModalColor, setAreaModalColor] = useState('#1976d2'); // default color
+    const [areaModalName, setAreaModalName] = useState("");
+    const [areaModalNotes, setAreaModalNotes] = useState("");
     const [lineModalSegments, setLineModalSegments] = useState([]); // Live segment distances
     const [lineModalTotal, setLineModalTotal] = useState('0 ft'); // Live total distance
     const [lineModalColor, setLineModalColor] = useState('#e53935');
     const [lineModalName, setLineModalName] = useState("");
     const [lineModalNotes, setLineModalNotes] = useState("");
+
+    // Handler for Area button in toolbar
+    const handleAreaButtonClick = () => {
+        if (draw && map) {
+            setAreaModalOpen(true);
+            setAreaModalTotal(0);
+            setAreaModalSegments([]);
+            setAreaModalColor('#1976d2');
+            setAreaModalName("");
+            setAreaModalNotes("");
+            // Delay draw mode activation until after modal is open to avoid focus issues
+            setTimeout(() => {
+                draw.changeMode('draw_polygon');
+            }, 100);
+        }
+    };
+
+    // Handler for closing/canceling the AreaModal
+    const handleAreaModalClose = () => {
+        setAreaModalOpen(false);
+        setAreaModalTotal(0);
+        setAreaModalSegments([]);
+        setAreaModalColor('#1976d2');
+        setAreaModalName("");
+        setAreaModalNotes("");
+        if (draw) {
+            // Remove all drawn polygons (pending)
+            const all = draw.getAll();
+            if (all && all.features && all.features.length > 0) {
+                all.features.filter(f => f.geometry.type === 'Polygon').forEach(f => draw.delete(f.id));
+            }
+            draw.changeMode('simple_select');
+        }
+    };
+
+    // Handler for saving the area
+    const handleAreaModalSave = (color, name, notes) => {
+        // Save the drawn area (persist to static layer)
+        if (draw && map) {
+            const all = draw.getAll();
+            const areaFeature = all.features.find(f => f.geometry.type === 'Polygon');
+            if (areaFeature) {
+                areaFeature.properties = {
+                    ...(areaFeature.properties || {}),
+                    color,
+                    name,
+                    notes
+                };
+                setSavedAreas(prev => {
+                    const updated = [...prev, areaFeature];
+                    if (map.getSource('static-areas')) {
+                        map.getSource('static-areas').setData({ type: 'FeatureCollection', features: updated });
+                    }
+                    return updated;
+                });
+                draw.delete(areaFeature.id);
+            }
+        }
+        setAreaModalOpen(false);
+        setAreaModalTotal(0);
+        setAreaModalSegments([]);
+        setAreaModalColor('#1976d2');
+        setAreaModalName("");
+        setAreaModalNotes("");
+        if (draw) {
+            draw.changeMode('simple_select');
+        }
+    };
 
     // Handler for Line button in toolbar
     const handleLineButtonClick = () => {
@@ -70,7 +142,30 @@ const Map = () => {
 
     // Handler for saving the line
     const handleLineModalSave = (color, name, notes) => {
-        // Save the drawn line (could persist or move to static layer)
+        // Save the drawn line (persist to static layer)
+        if (draw && map) {
+            const all = draw.getAll();
+            const lineFeature = all.features.find(f => f.geometry.type === 'LineString');
+            if (lineFeature) {
+                // Attach properties for color, name, notes
+                lineFeature.properties = {
+                    ...(lineFeature.properties || {}),
+                    color,
+                    name,
+                    notes
+                };
+                setSavedLines(prev => {
+                    const updated = [...prev, lineFeature];
+                    // Update map source
+                    if (map.getSource('static-lines')) {
+                        map.getSource('static-lines').setData({ type: 'FeatureCollection', features: updated });
+                    }
+                    return updated;
+                });
+                // Remove from Draw
+                draw.delete(lineFeature.id);
+            }
+        }
         setLineModalOpen(false);
         setLineModalSegments([]);
         setLineModalTotal('0 ft');
@@ -78,7 +173,6 @@ const Map = () => {
         setLineModalName("");
         setLineModalNotes("");
         if (draw) {
-            // Optionally set style or metadata
             draw.changeMode('simple_select');
         }
     };
@@ -114,18 +208,6 @@ const Map = () => {
             }} 
         />
     )}
-    // <LineMeasure map={map} draw={draw} onUpdate={(segments, total) => { setLineModalSegments(segments); setLineModalTotal(total); }} />
-
-
-
-
-
-
-
-
-
-
-
 
     useEffect(() => {
         const initialMap = new mapboxgl.Map({
@@ -133,6 +215,52 @@ const Map = () => {
             style: styles['3D-Topo'], // Set default style
             center: [-74.5, 40], // Set initial map center
             zoom: 9, // Set initial zoom level
+        });
+
+        // Add static sources/layers for saved lines and areas
+        initialMap.on('load', () => {
+            // Static Lines
+            if (!initialMap.getSource('static-lines')) {
+                initialMap.addSource('static-lines', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: savedLines }
+                });
+                initialMap.addLayer({
+                    id: 'static-lines-layer',
+                    type: 'line',
+                    source: 'static-lines',
+                    paint: {
+                        'line-color': '#e53935',
+                        'line-width': 4
+                    }
+                });
+            }
+            // Static Areas
+            if (!initialMap.getSource('static-areas')) {
+                initialMap.addSource('static-areas', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: savedAreas }
+                });
+                initialMap.addLayer({
+                    id: 'static-areas-layer',
+                    type: 'fill',
+                    source: 'static-areas',
+                    paint: {
+                        'fill-color': '#1976d2',
+                        'fill-opacity': 0.25
+                    }
+                });
+                // Border for areas
+                initialMap.addLayer({
+                    id: 'static-areas-outline',
+                    type: 'line',
+                    source: 'static-areas',
+                    paint: {
+                        'line-color': '#1976d2',
+                        'line-width': 2
+                    }
+                });
+            }
         });
 
         // Restore original MapboxDraw setup: NO built-in controls, only custom toolbar
@@ -248,11 +376,47 @@ const Map = () => {
         };
     }, []);
 
+    // Keep static sources in sync with state changes
+    useEffect(() => {
+        if (map && map.getSource('static-lines')) {
+            map.getSource('static-lines').setData({ type: 'FeatureCollection', features: savedLines });
+        }
+    }, [savedLines, map]);
+    useEffect(() => {
+        if (map && map.getSource('static-areas')) {
+            map.getSource('static-areas').setData({ type: 'FeatureCollection', features: savedAreas });
+        }
+    }, [savedAreas, map]);
+
     useEffect(() => {
         if (map) {
             trackMousePosition(map, infoVisible); // Update mouse position display based on visibility
         }
     }, [infoVisible, map]);
+
+    // Memoized update callbacks to avoid infinite render loops
+    const handleLineMeasureUpdate = useCallback((segments, total) => {
+        setLineModalSegments(segments);
+        setLineModalTotal(total);
+    }, []);
+    const handleAreaMeasureUpdate = useCallback((segments, totalAreaAcres) => {
+        setAreaModalSegments(segments);
+        setAreaModalTotal(totalAreaAcres);
+    }, []);
+
+    // --- Render AreaMeasure for live area drawing/measurement ---
+    // This is a render helper for inside JSX, not a hook
+    const renderAreaMeasure = () => {
+        if (!isAreaModalOpen || !map || !draw) return null;
+        return (
+            <AreaMeasure
+                map={map}
+                draw={draw}
+                onUpdate={handleAreaMeasureUpdate}
+            />
+        );
+    };
+
 
     const changeMapStyle = (styleKey) => {
         if (!map) return;
@@ -432,18 +596,19 @@ const Map = () => {
                     <CrosshairToggle mapContainerRef={mapContainer} />
                     {draw && map && (
   <>
-    <DrawingToolbar draw={draw} map={map} mapContainerRef={mapContainer} onLineButtonClick={handleLineButtonClick} />
+    <DrawingToolbar 
+      draw={draw} 
+      map={map} 
+      mapContainerRef={mapContainer} 
+      onLineButtonClick={handleLineButtonClick} 
+      onAreaButtonClick={handleAreaButtonClick}
+    />
     {isLineModalOpen && (
       <LineMeasure
         map={map}
         draw={draw}
-        onUpdate={(segments, total) => {
-          setLineModalSegments(segments);
-          setLineModalTotal(total);
-          if (draw && typeof draw.getAll === 'function') {
-            console.log('[DEBUG] LineMeasure onUpdate draw features:', draw.getAll());
-          }
-        }}
+        onUpdate={handleLineMeasureUpdate}
+        lineColor={lineModalColor}
       />
     )}
     <LineModal
@@ -460,6 +625,21 @@ const Map = () => {
   </>
 )}
                     <ZoomControl map={map} />
+
+                    {/* Area Modal */}
+                    {isAreaModalOpen && renderAreaMeasure()}
+                    <AreaModal
+                      isOpen={isAreaModalOpen}
+                      onClose={handleAreaModalClose}
+                      onSave={handleAreaModalSave}
+                      totalAreaAcres={areaModalTotal}
+                      segments={areaModalSegments}
+                      areaColor={areaModalColor}
+                      setAreaColor={setAreaModalColor}
+                      initialName={areaModalName}
+                      notes={areaModalNotes}
+                      setNotes={setAreaModalNotes}
+                    />
 
                     <div
                         id="info"

@@ -70,7 +70,7 @@ export async function locateAndMarkUser(map) {
       // Center the map on the user's location
       map.flyTo({
         center: [longitude, latitude],
-        zoom: 15,
+        zoom: 17,
         speed: 1.2,
       });
 
