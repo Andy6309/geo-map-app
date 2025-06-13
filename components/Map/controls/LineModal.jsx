@@ -44,12 +44,9 @@ const modalStyle = {
   }
 };
 
+// Only red color option
 const colorOptions = [
-  { label: 'Red', value: '#e53935' },
-  { label: 'Blue', value: '#1976d2' },
-  { label: 'Green', value: '#43a047' },
-  { label: 'Yellow', value: '#fbc02d' },
-  { label: 'Black', value: '#222' },
+  { label: 'Red', value: '#e53935' }
 ];
 
 console.log('Custom LineModal in use');
@@ -71,9 +68,56 @@ export default function LineModal({
   const [lineName, setLineName] = useState(initialName || defaultName);
   const [lineColor, setLineColor] = useState(initialColor);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmingSave, setConfirmingSave] = useState(false);
+  
+  // Reset confirmation state when modal opens/closes
+  useEffect(() => {
+    if (isOpen) {
+      setShowConfirm(false);
+      setConfirmingSave(false);
+    }
+  }, [isOpen]);
+
+  // Handle Enter key press to show save confirmation
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Enter' && isOpen && !showConfirm) {
+        e.preventDefault();
+        e.stopPropagation(); // Prevent event from reaching map
+        setConfirmingSave(true);
+        setShowConfirm(true);
+        // Blur any active elements to prevent form submission
+        if (document.activeElement) {
+          document.activeElement.blur();
+        }
+      }
+    };
+    
+    // Use capture phase to ensure we catch the event first
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, { capture: true });
+    };
+  }, [isOpen, showConfirm]);
 
   const handleSave = () => {
     onSave(lineColor, lineName);
+    setConfirmingSave(false);
+  };
+  
+  const handleCancelConfirm = (confirmed) => {
+    if (confirmingSave) {
+      // If we were confirming a save, just close the confirmation
+      setShowConfirm(false);
+      setConfirmingSave(false);
+    } else {
+      // If we were canceling, handle based on confirmation
+      setShowConfirm(false);
+      if (confirmed) {
+        // Only remove the line and close if confirmed
+        onClose();
+      }
+    }
   };
 
   return (
@@ -93,12 +137,11 @@ export default function LineModal({
       >×</button>
       <ConfirmModal
         isOpen={!!showConfirm}
-        message={'Are you sure you want to cancel line drawing?'}
-        onConfirm={() => {
-          setShowConfirm(false);
-          onClose();
-        }}
-        onCancel={() => setShowConfirm(false)}
+        message={confirmingSave 
+          ? 'Are you sure you want to place this line?' 
+          : 'Are you sure you want to cancel line drawing?'}
+        onConfirm={confirmingSave ? handleSave : () => handleCancelConfirm(true)}
+        onCancel={() => handleCancelConfirm(false)}
       />
       <div style={{marginBottom:'18px', display:'flex', flexDirection:'column', alignItems:'center'}}>
         <label htmlFor="line-name-input" style={{fontWeight:700, fontSize:'1.13rem', marginBottom:8, display:'block', letterSpacing:'-0.5px', fontFamily:'inherit'}}>Line Name</label>
@@ -181,12 +224,18 @@ export default function LineModal({
       </div>
       <div style={{height:18}} />
       <div style={{ display:'flex', flexDirection:'column', gap:'8px', marginTop:'10px' }}>
-        <button
-          style={{backgroundColor: '#1976d2', color: '#fff', padding:'13px', border:'none', borderRadius:'4px', cursor:'pointer', width:'100%', fontSize:'1.13rem', fontWeight:600, fontFamily:'inherit', marginBottom:'6px'}}
-          onClick={handleSave}
-        >
-          <FontAwesomeIcon icon={faSave} style={{ marginRight: 8 }} /> Save Line
-        </button>
+        <div style={{ 
+          backgroundColor: '#f8f9fa', 
+          padding: '12px', 
+          borderRadius: '4px', 
+          border: '1px solid #e9ecef',
+          textAlign: 'center',
+          color: '#495057',
+          fontSize: '1rem',
+          marginBottom: '8px'
+        }}>
+          Press enter to place line
+        </div>
         <button
           style={{background:'#eee', color:'#444', border:'1px solid #ccc', fontWeight:500, marginTop:0, fontFamily:'inherit', borderRadius:'4px', padding:'13px', width:'100%'}}
           onClick={() => setShowConfirm(true)}

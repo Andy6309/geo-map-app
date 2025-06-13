@@ -1,5 +1,5 @@
 // File: components/Map/controls/AreaModal.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from 'react-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSave, faTrash, faTimes } from '@fortawesome/free-solid-svg-icons';
@@ -35,12 +35,9 @@ const modalStyle = {
   }
 };
 
+// Only blue color option
 const colorOptions = [
-  { label: 'Red', value: '#e53935' },
-  { label: 'Blue', value: '#1976d2' },
-  { label: 'Green', value: '#43a047' },
-  { label: 'Yellow', value: '#fbc02d' },
-  { label: 'Black', value: '#222' },
+  { label: 'Blue', value: '#1976d2' }
 ];
 
 export default function AreaModal({
@@ -49,57 +46,84 @@ export default function AreaModal({
   onSave,
   totalAreaAcres,
   segments,
-  areaColor,
+  areaColor = '#1976d2',
   setAreaColor,
   initialName = '',
   notes = '',
   setNotes
 }) {
   const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmingSave, setConfirmingSave] = useState(false);
   const today = new Date();
   const defaultName = `Area ${today.getMonth() + 1}/${today.getDate()}/${today.getFullYear()}`;
   const [areaName, setAreaName] = useState(initialName || defaultName);
 
+  // Handle Enter key press to show save confirmation
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Enter' && isOpen && !showConfirm) {
+        e.preventDefault();
+        e.stopPropagation();
+        setConfirmingSave(true);
+        setShowConfirm(true);
+        if (document.activeElement) {
+          document.activeElement.blur();
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, { capture: true });
+    };
+  }, [isOpen, showConfirm]);
+
   const handleSave = () => {
     onSave(areaColor, areaName, notes);
+    setConfirmingSave(false);
   };
 
-  // Close button triggers confirm modal
-  const handleRequestClose = () => {
-    setShowConfirm(true);
+  const handleCancelConfirm = (confirmed) => {
+    if (confirmingSave) {
+      setShowConfirm(false);
+      setConfirmingSave(false);
+    } else {
+      setShowConfirm(false);
+      if (confirmed) {
+        onClose();
+      }
+    }
   };
 
-  const handleCancelClose = () => {
-    setShowConfirm(false);
-  };
-
-  const handleConfirmClose = () => {
-    setShowConfirm(false);
-    onClose();
-  };
+  // Reset confirmation state when modal opens/closes
+  useEffect(() => {
+    if (isOpen) {
+      setShowConfirm(false);
+      setConfirmingSave(false);
+    }
+  }, [isOpen]);
 
   return (
     <Modal
       isOpen={isOpen}
-      onRequestClose={handleRequestClose}
+      onRequestClose={() => setShowConfirm(true)}
       style={modalStyle}
       contentLabel="Add/Edit Area"
       ariaHideApp={false}
       parentSelector={() => document.body}
     >
       <button
-        onClick={handleRequestClose}
+        onClick={() => setShowConfirm(true)}
         style={{ position: 'absolute', top: 8, right: 12, border: 'none', background: 'none', fontSize: 22, cursor: 'pointer', color: '#888', zIndex: 100001 }}
         aria-label="Close Modal"
       >×</button>
       <ConfirmModal
         isOpen={!!showConfirm}
-        message={'Are you sure you want to cancel area drawing?'}
-        onConfirm={() => {
-          setShowConfirm(false);
-          onClose();
-        }}
-        onCancel={() => setShowConfirm(false)}
+        message={confirmingSave 
+          ? 'Are you sure you want to place this area?' 
+          : 'Are you sure you want to cancel area drawing?'}
+        onConfirm={confirmingSave ? handleSave : () => handleCancelConfirm(true)}
+        onCancel={() => handleCancelConfirm(false)}
       />
       <div style={{marginBottom:'18px', display:'flex', flexDirection:'column', alignItems:'center'}}>
         <label htmlFor="area-name-input" style={{fontWeight:700, fontSize:'1.13rem', marginBottom:8, display:'block', letterSpacing:'-0.5px', fontFamily:'inherit'}}>Area Name</label>
@@ -182,18 +206,34 @@ export default function AreaModal({
         <span style={{ marginLeft: 8, color: '#1976d2', fontWeight: 600 }}>{totalAreaAcres?.toFixed(2) ?? '0.00'} acres</span>
       </div>
       {/* TODO: Add segment details live here if desired */}
-      <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '24px' }}>
+        <div style={{ 
+          backgroundColor: '#f8f9fa', 
+          padding: '12px', 
+          borderRadius: '4px', 
+          border: '1px solid #e9ecef',
+          textAlign: 'center',
+          color: '#495057',
+          fontSize: '1rem',
+          marginBottom: '8px'
+        }}>
+          Press enter to place area
+        </div>
         <button
-          style={{ background: '#1976d2', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontWeight: 600, fontSize: 16, cursor: 'pointer' }}
-          onClick={handleSave}
+          style={{ 
+            background: '#fff', 
+            color: '#dc3545', 
+            border: '1px solid #dc3545', 
+            borderRadius: '6px', 
+            padding: '10px 16px', 
+            fontWeight: 600, 
+            fontSize: '16px', 
+            cursor: 'pointer',
+            width: '100%'
+          }}
+          onClick={() => setShowConfirm(true)}
         >
-          <FontAwesomeIcon icon={faSave} style={{ marginRight: 8 }} />Save Area
-        </button>
-        <button
-          style={{ background: '#fff', color: '#dc3545', border: '1px solid #dc3545', borderRadius: 6, padding: '10px 16px', fontWeight: 600, fontSize: 16, cursor: 'pointer' }}
-          onClick={handleRequestClose}
-        >
-          <FontAwesomeIcon icon={faTrash} style={{ marginRight: 8 }} />Cancel
+          <FontAwesomeIcon icon={faTrash} style={{ marginRight: '8px' }} />Cancel
         </button>
       </div>
     </Modal>

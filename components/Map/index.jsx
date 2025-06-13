@@ -20,7 +20,7 @@ import AreaMeasure from './controls/AreaMeasure';
 import LineModal from './controls/LineModal';
 
 
-mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
 
 const Map = () => {
     // --- Persistent drawn features ---
@@ -35,6 +35,7 @@ const Map = () => {
     const [mapBearing, setMapBearing] = useState(0);
     const [mapPitch, setMapPitch] = useState(0);
     const [draw, setDraw] = useState(null);
+    const [currentStyleId, setCurrentStyleId] = useState('2d-topo'); // Track current style ID, default to 2D Topo
 
     // --- Line Modal State ---
     const [isLineModalOpen, setLineModalOpen] = useState(false);
@@ -93,11 +94,13 @@ const Map = () => {
             const all = draw.getAll();
             const areaFeature = all.features.find(f => f.geometry.type === 'Polygon');
             if (areaFeature) {
+                areaFeature.id = `area-${Date.now()}`; // Add unique ID
                 areaFeature.properties = {
                     ...(areaFeature.properties || {}),
                     color,
                     name,
-                    notes
+                    notes,
+                    createdAt: new Date().toISOString()
                 };
                 setSavedAreas(prev => {
                     const updated = [...prev, areaFeature];
@@ -147,12 +150,14 @@ const Map = () => {
             const all = draw.getAll();
             const lineFeature = all.features.find(f => f.geometry.type === 'LineString');
             if (lineFeature) {
+                lineFeature.id = `line-${Date.now()}`; // Add unique ID
                 // Attach properties for color, name, notes
                 lineFeature.properties = {
                     ...(lineFeature.properties || {}),
                     color,
                     name,
-                    notes
+                    notes,
+                    createdAt: new Date().toISOString()
                 };
                 setSavedLines(prev => {
                     const updated = [...prev, lineFeature];
@@ -179,12 +184,6 @@ const Map = () => {
 
     // Handler for closing/canceling the modal
     const handleLineModalClose = () => {
-        setLineModalOpen(false);
-        setLineModalSegments([]);
-        setLineModalTotal('0 ft');
-        setLineModalColor('#e53935');
-        setLineModalName("");
-        setLineModalNotes("");
         if (draw) {
             // Remove all drawn lines (pending)
             const all = draw.getAll();
@@ -193,6 +192,12 @@ const Map = () => {
             }
             draw.changeMode('simple_select');
         }
+        setLineModalOpen(false);
+        setLineModalSegments([]);
+        setLineModalTotal('0 ft');
+        setLineModalColor('#e53935');
+        setLineModalName("");
+        setLineModalNotes("");
     };
 
     // --- Sync live measurements from LineMeasure.jsx ---
@@ -212,9 +217,43 @@ const Map = () => {
     useEffect(() => {
         const initialMap = new mapboxgl.Map({
             container: mapContainer.current,
-            style: styles['3D-Topo'], // Set default style
+            style: styles.find(s => s.id === '2d-topo').url, // Set default style to 2D Topo
             center: [-74.5, 40], // Set initial map center
             zoom: 9, // Set initial zoom level
+            attributionControl: false, // Disable default attribution control
+            // Configure map controls and interactions
+            boxZoom: true,
+            dragRotate: true,  // Enable rotation with right-click + drag or ctrl + drag
+            dragPan: true,     // Enable panning
+            keyboard: true,    // Enable keyboard navigation
+            doubleClickZoom: true,
+            touchPitch: true,  // Enable tilt with touch
+            touchZoomRotate: true,  // Enable zoom and rotate with touch
+            pitchWithRotate: true,  // Enable tilt with right-click + drag or ctrl + drag
+        });
+
+        // Hide default navigation controls in top-right
+        initialMap.on('load', () => {
+            // Target the specific navigation control group
+            const navControls = document.querySelectorAll('.mapboxgl-ctrl-top-right .mapboxgl-ctrl');
+            navControls.forEach(control => {
+                control.style.display = 'none';
+                control.style.visibility = 'hidden';
+            });
+            
+            // Also hide any navigation control groups
+            const navGroups = document.querySelectorAll('.mapboxgl-ctrl-top-right .mapboxgl-ctrl-group');
+            navGroups.forEach(group => {
+                group.style.display = 'none';
+                group.style.visibility = 'hidden';
+            });
+            
+            // Hide the container itself
+            const topRightContainer = document.querySelector('.mapboxgl-ctrl-top-right');
+            if (topRightContainer) {
+                topRightContainer.style.display = 'none';
+                topRightContainer.style.visibility = 'hidden';
+            }
         });
 
         // Add static sources/layers for saved lines and areas
@@ -263,48 +302,84 @@ const Map = () => {
             }
         });
 
-        // Restore original MapboxDraw setup: NO built-in controls, only custom toolbar
-        // Custom MapboxDraw instance: Make all Draw layers fully transparent to hide default lines/points
+        // Add hash function to String prototype for generating IDs
+        if (!String.prototype.hashCode) {
+            String.prototype.hashCode = function() {
+                let hash = 0;
+                for (let i = 0; i < this.length; i++) {
+                    const char = this.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash; // Convert to 32bit integer
+                }
+                return Math.abs(hash);
+            };
+        }
+
+        // Simplified MapboxDraw instance
         const drawControl = new MapboxDraw({
             displayControlsDefault: false,
-            controls: {},
+            controls: {
+                line_string: true,
+                polygon: true,
+                trash: true,
+                combine_features: false,
+                uncombine_features: false
+            },
+            // Don't modify modes directly to avoid conflicts
+            defaultMode: 'simple_select',
             styles: [
+                // Line style for drawing (visible for both lines and polygons)
                 {
                     id: 'gl-draw-line',
                     type: 'line',
-                    filter: ['all', ['==', '$type', 'LineString'], ['!=', 'mode', 'static']],
+                    filter: ['all', 
+                        ['any', 
+                            ['==', '$type', 'LineString'], 
+                            ['==', '$type', 'Polygon']
+                        ], 
+                        ['!=', 'mode', 'static']
+                    ],
                     layout: {
                         'line-cap': 'round',
                         'line-join': 'round'
                     },
                     paint: {
-                        'line-color': 'rgba(0,0,0,0)', // Hide default line
-                        'line-width': 4
+                        'line-color': '#1976d2',
+                        'line-width': 2,
+                        'line-dasharray': [2, 2]
                     }
                 },
+                // Static lines (hidden)
                 {
                     id: 'gl-draw-line-static',
                     type: 'line',
-                    filter: ['all', ['==', '$type', 'LineString'], ['==', 'mode', 'static']],
+                    filter: ['all', 
+                        ['any', 
+                            ['==', '$type', 'LineString'], 
+                            ['==', '$type', 'Polygon']
+                        ], 
+                        ['==', 'mode', 'static']
+                    ],
                     layout: {
                         'line-cap': 'round',
                         'line-join': 'round'
                     },
                     paint: {
-                        'line-color': 'rgba(0,0,0,0)', // Hide default static line
+                        'line-color': 'rgba(0,0,0,0)',
                         'line-width': 3
                     }
                 },
+                // Points (hidden)
                 {
                     id: 'gl-draw-point',
                     type: 'circle',
                     filter: ['all', ['==', '$type', 'Point'], ['!=', 'meta', 'midpoint']],
                     paint: {
                         'circle-radius': 6,
-                        'circle-color': 'rgba(0,0,0,0)' // Hide default points
+                        'circle-color': 'rgba(0,0,0,0)'
                     }
                 },
-                // Hide all other Draw layers (midpoints, vertex previews, etc.)
+                // Midpoints (hidden)
                 {
                     id: 'gl-draw-midpoint',
                     type: 'circle',
@@ -314,6 +389,7 @@ const Map = () => {
                         'circle-color': 'rgba(0,0,0,0)'
                     }
                 },
+                // Vertex halos (hidden)
                 {
                     id: 'gl-draw-vertex-halo-active',
                     type: 'circle',
@@ -323,6 +399,7 @@ const Map = () => {
                         'circle-color': 'rgba(0,0,0,0)'
                     }
                 },
+                // Vertices (hidden)
                 {
                     id: 'gl-draw-vertex-active',
                     type: 'circle',
@@ -376,12 +453,144 @@ const Map = () => {
         };
     }, []);
 
+    // Keep static sources in sync with state changes and add click handlers
+    useEffect(() => {
+        if (!map) return;
+
+        const handleClick = (e) => {
+            if (!map || !draw) return;
+            
+            // Remove any existing popups
+            document.querySelectorAll('.mapboxgl-popup').forEach(popup => popup.remove());
+            
+            // Check if a feature was clicked
+            const features = map.queryRenderedFeatures(e.point, {
+                layers: ['static-lines-layer', 'static-areas-layer']
+            });
+
+            if (features.length > 0) {
+                const feature = features[0];
+                const isArea = feature.layer.id === 'static-areas-layer';
+                
+                // Debug: Log the feature to see what we're working with
+                console.log('Clicked feature:', {
+                    feature,
+                    properties: feature.properties,
+                    id: feature.id,
+                    geometryType: feature.geometry.type
+                });
+                
+                // Get the feature ID from properties or generate one
+                const featureId = feature.properties?.id || feature.id || `${isArea ? 'area' : 'line'}-${Date.now()}`;
+                console.log('Using featureId:', featureId);
+                
+                // Create a popup with delete button
+                const popup = new mapboxgl.Popup({ 
+                    closeButton: false,
+                    closeOnClick: true,
+                    className: 'feature-popup'
+                });
+
+                // Create popup content
+                const popupContent = document.createElement('div');
+                popupContent.style.padding = '8px';
+                
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = `Delete ${isArea ? 'Area' : 'Line'}`;
+                deleteButton.style.cssText = `
+                    background: #dc3545;
+                    color: white;
+                    border: none;
+                    padding: 6px 12px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    font-weight: 500;
+                `;
+                
+                // Get or generate a unique ID for the feature
+                const getFeatureId = (feature) => {
+                    // First try to get ID from feature
+                    let id = feature.id || feature.properties?.id;
+                    
+                    // If no ID exists, create one based on coordinates
+                    if (!id && feature.geometry?.coordinates) {
+                        const coordsStr = JSON.stringify(feature.geometry.coordinates);
+                        id = `feature-${Math.abs(coordsStr.split('').reduce(
+                            (hash, char) => ((hash << 5) - hash) + char.charCodeAt(0),
+                            0
+                        ))}`;
+                    }
+                    return id;
+                };
+
+                const clickedFeatureId = getFeatureId(feature);
+                
+                if (!clickedFeatureId) {
+                    console.error('Could not identify feature for deletion');
+                    popup.remove();
+                    return;
+                }
+
+                // Add click handler directly to the button
+                deleteButton.onclick = (e) => {
+                    e.stopPropagation();
+                    
+                    // Get the current state
+                    const currentState = isArea ? savedAreas : savedLines;
+                    
+                    console.log('Deleting feature with ID:', clickedFeatureId);
+                    
+                    if (isArea) {
+                        setSavedAreas(prev => {
+                            const updated = prev.filter(f => getFeatureId(f) !== clickedFeatureId);
+                            
+                            if (map.getSource('static-areas')) {
+                                map.getSource('static-areas').setData({ 
+                                    type: 'FeatureCollection', 
+                                    features: updated 
+                                });
+                            }
+                            return updated;
+                        });
+                    } else {
+                        setSavedLines(prev => {
+                            const updated = prev.filter(f => getFeatureId(f) !== clickedFeatureId);
+                            
+                            if (map.getSource('static-lines')) {
+                                map.getSource('static-lines').setData({ 
+                                    type: 'FeatureCollection', 
+                                    features: updated 
+                                });
+                            }
+                            return updated;
+                        });
+                    }
+                    
+                    popup.remove();
+                };
+                
+                popupContent.appendChild(deleteButton);
+                popup.setDOMContent(popupContent).setLngLat(e.lngLat).addTo(map);
+            }
+        };
+
+        // Add click handler for lines and areas
+        map.on('click', handleClick);
+
+        // Clean up
+        return () => {
+            map.off('click', handleClick);
+        };
+    }, [map, draw, savedLines, savedAreas]);
+
     // Keep static sources in sync with state changes
     useEffect(() => {
         if (map && map.getSource('static-lines')) {
             map.getSource('static-lines').setData({ type: 'FeatureCollection', features: savedLines });
         }
     }, [savedLines, map]);
+    
     useEffect(() => {
         if (map && map.getSource('static-areas')) {
             map.getSource('static-areas').setData({ type: 'FeatureCollection', features: savedAreas });
@@ -501,8 +710,12 @@ const Map = () => {
             const drawControl = new MapboxDraw({
                 displayControlsDefault: false,
                 controls: {
+                    point: false,
                     line_string: true,
-                    trash: true
+                    polygon: true,
+                    trash: true,
+                    combine_features: false,
+                    uncombine_features: false
                 },
                 styles: [
                     {
@@ -677,30 +890,69 @@ const Map = () => {
                             padding: '5px',
                         }}
                     >
-                        {Object.keys(styles).map((style, idx) => (
+                        {styles.map((style, idx) => (
                             <button
-                                key={idx}
-                                onClick={() => changeMapStyle(style)}
+                                key={style.id}
+                                onClick={() => {
+                                    if (map) {
+                                        const center = map.getCenter();
+                                        const zoom = map.getZoom();
+                                        const bearing = map.getBearing();
+                                        const pitch = map.getPitch();
+                                        
+                                        map.setStyle(style.url);
+                                        setCurrentStyleId(style.id);
+                                        
+                                        // Restore map state after style loads
+                                        map.once('style.load', () => {
+                                            map.setCenter(center);
+                                            map.setZoom(zoom);
+                                            map.setBearing(bearing);
+                                            map.setPitch(pitch);
+                                            // Force re-render of any custom layers if needed
+                                            if (map.getSource('static-lines')) {
+                                                map.getSource('static-lines').setData({
+                                                    type: 'FeatureCollection',
+                                                    features: savedLines
+                                                });
+                                            }
+                                            if (map.getSource('static-areas')) {
+                                                map.getSource('static-areas').setData({
+                                                    type: 'FeatureCollection',
+                                                    features: savedAreas
+                                                });
+                                            }
+                                        });
+                                    }
+                                }}
                                 style={{
                                     margin: '0 5px',
                                     padding: '6px 12px',
                                     borderRadius: '4px',
                                     border: '1px solid #ccc',
-                                    background: '#fff',
-                                    color: '#007bff',
+                                    background: style.id === currentStyleId ? '#007bff' : '#fff',
+                                    color: style.id === currentStyleId ? 'white' : '#007bff',
                                     fontWeight: 'bold',
                                     cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
                                 }}
                                 onMouseEnter={(e) => {
-                                    e.target.style.backgroundColor = '#007bff';
-                                    e.target.style.color = 'white';
+                                    if (style.id !== currentStyleId) {
+                                        e.target.style.backgroundColor = '#007bff';
+                                        e.target.style.color = 'white';
+                                    }
                                 }}
                                 onMouseLeave={(e) => {
-                                    e.target.style.backgroundColor = 'transparent';
-                                    e.target.style.color = '#007bff';
+                                    if (style.id !== currentStyleId) {
+                                        e.target.style.backgroundColor = '#fff';
+                                        e.target.style.color = '#007bff';
+                                    } else {
+                                        e.target.style.backgroundColor = '#007bff';
+                                        e.target.style.color = 'white';
+                                    }
                                 }}
                             >
-                                {style}
+                                {style.name}
                             </button>
                         ))}
                     </div>
