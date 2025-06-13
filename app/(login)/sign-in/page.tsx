@@ -1,7 +1,7 @@
 'use client';
 
-import { Login } from '../login';
+import LoginPage from '../login/page';
 
 export default function SignInPage() {
-  return <Login mode="signin" />;
+  return <LoginPage />;
 }
