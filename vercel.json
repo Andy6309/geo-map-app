@@ -6,35 +6,14 @@
       "use": "@vercel/next"
     }
   ],
-  "routes": [
-    {
-      "src": "^/static/(.*)",
-      "dest": "/static/$1"
-    },
-    {
-      "src": "^/_next/static/(.*)",
-      "dest": "/_next/static/$1"
-    },
-    {
-      "src": "^/_next/data/(.*)",
-      "dest": "/_next/data/$1"
-    },
-    {
-      "src": "^/(.*)",
-      "dest": "/$1"
-    }
+  "rewrites": [
+    { "source": "/_next/static/:path*", "destination": "/_next/static/:path*" },
+    { "source": "/static/:path*", "destination": "/static/:path*" },
+    { "source": "/(.*)", "destination": "/" }
   ],
-  "env": {
-    "NODE_ENV": "production"
-  },
-  "build": {
-    "env": {
-      "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN": "$NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN"
-    }
-  },
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/:path*",
       "headers": [
         {
           "key": "X-Content-Type-Options",
@@ -51,7 +30,7 @@
       ]
     },
     {
-      "source": "/_next/static/(.*)",
+      "source": "/_next/static/:path*",
       "headers": [
         {
           "key": "Cache-Control",
@@ -59,5 +38,13 @@
         }
       ]
     }
-  ]
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN": "$NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN"
+    }
+  }
 }
