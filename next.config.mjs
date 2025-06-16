@@ -40,11 +40,17 @@ const nextConfig = {
     }
     return config;
   },
+  // Environment variables that will be available on the client
   env: {
     NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN,
     NEXT_PUBLIC_VERCEL_URL: process.env.VERCEL_URL,
-    NODE_ENV: process.env.NODE_ENV,
   },
+  
+  // Ensure source maps are generated in production for debugging
+  productionBrowserSourceMaps: true,
+  
+  // Enable React Strict Mode
+  reactStrictMode: true,
   // Add base path if your app is served from a subdirectory
   // basePath: '/your-base-path', // Uncomment and set this if your app is served from a subdirectory
   // Enable production source maps for better error tracking
