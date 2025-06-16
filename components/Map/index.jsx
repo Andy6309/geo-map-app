@@ -21,14 +21,17 @@ import LineModal from './controls/LineModal';
 
 
 const Map = () => {
+    const mapContainer = useRef(null);
+    const [map, setMap] = useState(null);
+    
     // Debug logging
     console.log('Map component rendering');
     
-    // Set Mapbox token when component mounts
+    // Initialize map when component mounts
     useEffect(() => {
         console.log('Map useEffect running');
-        if (typeof window === 'undefined') {
-            console.log('Running on server, skipping map initialization');
+        if (typeof window === 'undefined' || mapContainer.current === null) {
+            console.log('Skipping map initialization - not in browser or container not ready');
             return;
         }
         
@@ -39,12 +42,39 @@ const Map = () => {
             return;
         }
         
+        // Set the access token
         mapboxgl.accessToken = token;
         console.log('Mapbox token set successfully');
+        
+        // Initialize the map
+        const mapInstance = new mapboxgl.Map({
+            container: mapContainer.current,
+            style: 'mapbox://styles/mapbox/streets-v12',
+            center: [-98.5795, 39.8283], // Default center (US)
+            zoom: 3,
+            attributionControl: false
+        });
+        
+        // Add navigation control
+        mapInstance.addControl(new mapboxgl.NavigationControl(), 'top-right');
+        
+        // Handle map load
+        mapInstance.on('load', () => {
+            console.log('Map loaded successfully');
+            setMap(mapInstance);
+        });
+        
+        // Handle errors
+        mapInstance.on('error', (e) => {
+            console.error('Map error:', e);
+        });
         
         // Cleanup function
         return () => {
             console.log('Cleaning up map');
+            if (mapInstance) {
+                mapInstance.remove();
+            }
         };
     }, []);
 
@@ -52,11 +82,9 @@ const Map = () => {
     const [savedLines, setSavedLines] = useState([]); // Array of GeoJSON features
     const [savedAreas, setSavedAreas] = useState([]); // Array of GeoJSON features
     const [infoVisible, setInfoVisible] = useState(true);
-    const mapContainer = useRef(null);
     const geocoderContainerRef = useRef(null);
     const markerRef = useRef(null);
     const waypointDrawerRef = useRef(null);
-    const [map, setMap] = useState(null);
     const [mapBearing, setMapBearing] = useState(0);
     const [mapPitch, setMapPitch] = useState(0);
     const [draw, setDraw] = useState(null);

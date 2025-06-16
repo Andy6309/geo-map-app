@@ -2,8 +2,31 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['api.mapbox.com', 'maps.mapbox.com'],
+    domains: ['api.mapbox.com', 'maps.mapbox.com', 'api.mapbox.com', '*.tiles.mapbox.com', '*.mapbox.com'],
     unoptimized: true, // Disable image optimization if not needed
+  },
+  // Allow loading resources from Mapbox domains
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' *.mapbox.com *.mapbox.com:*",
+              "connect-src 'self' *.mapbox.com *.mapbox.com:* data: blob:",
+              "img-src 'self' data: blob: *.mapbox.com *.mapbox.com:*",
+              "style-src 'self' 'unsafe-inline' *.mapbox.com",
+              "worker-src blob:",
+              "child-src blob: data:",
+              "frame-src 'self' blob: data:"
+            ].join('; ')
+          }
+        ]
+      }
+    ];
   },
   webpack: (config, { isServer }) => {
     // Fixes npm packages that depend on `fs` module
