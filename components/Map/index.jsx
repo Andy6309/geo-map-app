@@ -21,11 +21,31 @@ import LineModal from './controls/LineModal';
 
 
 const Map = () => {
+    // Debug logging
+    console.log('Map component rendering');
+    
     // Set Mapbox token when component mounts
     useEffect(() => {
-        if (typeof window !== 'undefined' && !mapboxgl.accessToken) {
-            mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+        console.log('Map useEffect running');
+        if (typeof window === 'undefined') {
+            console.log('Running on server, skipping map initialization');
+            return;
         }
+        
+        console.log('Setting Mapbox token');
+        const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+        if (!token) {
+            console.error('Mapbox token is not set!');
+            return;
+        }
+        
+        mapboxgl.accessToken = token;
+        console.log('Mapbox token set successfully');
+        
+        // Cleanup function
+        return () => {
+            console.log('Cleaning up map');
+        };
     }, []);
 
     // --- Persistent drawn features ---
