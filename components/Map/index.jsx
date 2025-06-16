@@ -20,9 +20,14 @@ import AreaMeasure from './controls/AreaMeasure';
 import LineModal from './controls/LineModal';
 
 
-mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
-
 const Map = () => {
+    // Set Mapbox token when component mounts
+    useEffect(() => {
+        if (typeof window !== 'undefined' && !mapboxgl.accessToken) {
+            mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+        }
+    }, []);
+
     // --- Persistent drawn features ---
     const [savedLines, setSavedLines] = useState([]); // Array of GeoJSON features
     const [savedAreas, setSavedAreas] = useState([]); // Array of GeoJSON features
