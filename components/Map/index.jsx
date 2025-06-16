@@ -54,13 +54,14 @@ const Map = () => {
         window.mapboxgl = window.mapboxgl || {};
         window.mapboxgl.accessToken = token;
         
-        // Set transform request to ensure token is included in all requests
+        // Transform request to ensure token is included in all requests
         const transformRequest = (url, resourceType) => {
-            if (resourceType === 'Tile' && url.startsWith('https://api.mapbox.com')) {
+            // Add access token to all Mapbox API requests
+            if (url.includes('api.mapbox.com')) {
+                const hasQuery = url.indexOf('?') !== -1;
+                const prefix = hasQuery ? '&' : '?';
                 return {
-                    url: url.includes('?') 
-                        ? `${url}&access_token=${token}` 
-                        : `${url}?access_token=${token}`
+                    url: url + prefix + `access_token=${token}`
                 };
             }
             return { url };
@@ -69,22 +70,24 @@ const Map = () => {
         // Create a style object with the token embedded in the URL
         const styleWithToken = {
             version: 8,
-            sources: {
-                'mapbox': {
-                    type: 'vector',
-                    url: `mapbox://mapbox.mapbox-streets-v8`
-                }
+            name: 'Basic',
+            metadata: {
+                'mapbox:autocomposite': true
             },
-            layers: [],
-            glyphs: `mapbox://fonts/mapbox/{fontstack}/{range}.pbf?access_token=${token}`,
-            sprite: `mapbox://sprites/mapbox/streets-v12?access_token=${token}`,
+            glyphs: `https://api.mapbox.com/fonts/v1/mapbox/{fontstack}/{range}.pbf?access_token=${token}`,
+            sprite: `https://api.mapbox.com/styles/v1/mapbox/streets-v12/sprite?access_token=${token}`,
             sources: {
-                'mapbox': {
+                'mapbox-streets': {
                     type: 'vector',
-                    url: `mapbox://mapbox.mapbox-streets-v8?access_token=${token}`
+                    url: `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8.json?secure&access_token=${token}`
+                },
+                'mapbox-terrain': {
+                    type: 'vector',
+                    url: `https://api.mapbox.com/v4/mapbox.mapbox-terrain-v2.json?secure&access_token=${token}`
                 }
             },
             layers: [
+                // Background layer
                 {
                     id: 'background',
                     type: 'background',
@@ -92,14 +95,34 @@ const Map = () => {
                         'background-color': '#f8f9fa'
                     }
                 },
+                // Water layers
                 {
                     id: 'water',
-                    source: 'mapbox',
+                    source: 'mapbox-streets',
                     'source-layer': 'water',
                     type: 'fill',
                     paint: {
                         'fill-color': '#c8d7e0',
                         'fill-opacity': 1
+                    }
+                },
+                // Add more layers as needed
+                {
+                    id: 'admin-1-2-boundaries',
+                    type: 'line',
+                    source: 'mapbox-streets',
+                    'source-layer': 'admin',
+                    filter: ['all',
+                        ['==', 'admin_level', 2],
+                        ['==', 'maritime', 0]
+                    ],
+                    layout: {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    paint: {
+                        'line-color': '#9e9e9e',
+                        'line-width': 1
                     }
                 }
             ]
