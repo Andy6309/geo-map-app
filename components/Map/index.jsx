@@ -36,19 +36,23 @@ const Map = () => {
         }
         
         console.log('Setting Mapbox token');
-        // Get token from environment variable or window object
-        const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || 
-                     (typeof window !== 'undefined' && window.ENV && window.ENV.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN);
+        // Get token from window object or environment variable
+        const token = (typeof window !== 'undefined' && (window.MAPBOX_ACCESS_TOKEN || 
+                     (window.ENV && window.ENV.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN))) || 
+                     process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
         
         if (!token) {
             console.error('Mapbox token is not set!');
             return;
         }
         
-        console.log('Mapbox token:', token ? 'Token found' : 'Token not found');
+        console.log('Mapbox token found:', token ? 'Yes' : 'No');
         
         // Set the access token
         mapboxgl.accessToken = token;
+        // Also set it on the window for other components
+        window.mapboxgl = window.mapboxgl || {};
+        window.mapboxgl.accessToken = token;
         
         // Set transform request to ensure token is included in all requests
         const transformRequest = (url, resourceType) => {
@@ -62,10 +66,49 @@ const Map = () => {
             return { url };
         };
         
-        // Initialize the map
+        // Create a style object with the token embedded in the URL
+        const styleWithToken = {
+            version: 8,
+            sources: {
+                'mapbox': {
+                    type: 'vector',
+                    url: `mapbox://mapbox.mapbox-streets-v8`
+                }
+            },
+            layers: [],
+            glyphs: `mapbox://fonts/mapbox/{fontstack}/{range}.pbf?access_token=${token}`,
+            sprite: `mapbox://sprites/mapbox/streets-v12?access_token=${token}`,
+            sources: {
+                'mapbox': {
+                    type: 'vector',
+                    url: `mapbox://mapbox.mapbox-streets-v8?access_token=${token}`
+                }
+            },
+            layers: [
+                {
+                    id: 'background',
+                    type: 'background',
+                    paint: {
+                        'background-color': '#f8f9fa'
+                    }
+                },
+                {
+                    id: 'water',
+                    source: 'mapbox',
+                    'source-layer': 'water',
+                    type: 'fill',
+                    paint: {
+                        'fill-color': '#c8d7e0',
+                        'fill-opacity': 1
+                    }
+                }
+            ]
+        };
+
+        // Initialize the map with the custom style
         const mapInstance = new mapboxgl.Map({
             container: mapContainer.current,
-            style: `mapbox://styles/mapbox/streets-v12?access_token=${token}`,
+            style: styleWithToken,
             center: [-98.5795, 39.8283], // Default center (US)
             zoom: 3,
             attributionControl: false,
