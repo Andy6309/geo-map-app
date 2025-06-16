@@ -42,6 +42,8 @@ const nextConfig = {
   },
   env: {
     NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN,
+    NEXT_PUBLIC_VERCEL_URL: process.env.VERCEL_URL,
+    NODE_ENV: process.env.NODE_ENV,
   },
   // Add base path if your app is served from a subdirectory
   // basePath: '/your-base-path', // Uncomment and set this if your app is served from a subdirectory

@@ -36,23 +36,40 @@ const Map = () => {
         }
         
         console.log('Setting Mapbox token');
-        const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+        // Get token from environment variable or window object
+        const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || 
+                     (typeof window !== 'undefined' && window.ENV && window.ENV.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN);
+        
         if (!token) {
             console.error('Mapbox token is not set!');
             return;
         }
         
+        console.log('Mapbox token:', token ? 'Token found' : 'Token not found');
+        
         // Set the access token
         mapboxgl.accessToken = token;
-        console.log('Mapbox token set successfully');
+        
+        // Set transform request to ensure token is included in all requests
+        const transformRequest = (url, resourceType) => {
+            if (resourceType === 'Tile' && url.startsWith('https://api.mapbox.com')) {
+                return {
+                    url: url.includes('?') 
+                        ? `${url}&access_token=${token}` 
+                        : `${url}?access_token=${token}`
+                };
+            }
+            return { url };
+        };
         
         // Initialize the map
         const mapInstance = new mapboxgl.Map({
             container: mapContainer.current,
-            style: 'mapbox://styles/mapbox/streets-v12',
+            style: `mapbox://styles/mapbox/streets-v12?access_token=${token}`,
             center: [-98.5795, 39.8283], // Default center (US)
             zoom: 3,
-            attributionControl: false
+            attributionControl: false,
+            transformRequest
         });
         
         // Add navigation control
