@@ -17,7 +17,7 @@
   },
   "build": {
     "env": {
-      "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN": "@mapbox_access_token"
+      "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN": "$NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN"
     }
   }
 }
