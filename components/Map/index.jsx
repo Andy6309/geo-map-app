@@ -20,18 +20,156 @@ import AreaMeasure from './controls/AreaMeasure';
 import LineModal from './controls/LineModal';
 
 
-mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
+mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 const Map = () => {
+    const mapContainer = useRef(null);
+    const [map, setMap] = useState(null);
+    
+    // Debug logging
+    console.log('Map component rendering');
+    
+    // Initialize map when component mounts
+    useEffect(() => {
+        console.log('Map useEffect running');
+        if (typeof window === 'undefined' || mapContainer.current === null) {
+            console.log('Skipping map initialization - not in browser or container not ready');
+            return;
+        }
+        
+        console.log('Setting Mapbox token');
+        // Get token from window object or environment variable
+        const token = (typeof window !== 'undefined' && (window.MAPBOX_ACCESS_TOKEN || 
+                     (window.ENV && window.ENV.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN))) || 
+                     process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+        
+        if (!token) {
+            console.error('Mapbox token is not set!');
+            return;
+        }
+        
+        console.log('Mapbox token found:', token ? 'Yes' : 'No');
+        
+        // Set the access token
+        mapboxgl.accessToken = token;
+        // Also set it on the window for other components
+        window.mapboxgl = window.mapboxgl || {};
+        window.mapboxgl.accessToken = token;
+        
+        // Transform request to ensure token is included in all requests
+        const transformRequest = (url, resourceType) => {
+            // Add access token to all Mapbox API requests
+            if (url.includes('api.mapbox.com')) {
+                const hasQuery = url.indexOf('?') !== -1;
+                const prefix = hasQuery ? '&' : '?';
+                return {
+                    url: url + prefix + `access_token=${token}`
+                };
+            }
+            return { url };
+        };
+        
+        // Create a style object with the token embedded in the URL
+        const styleWithToken = {
+            version: 8,
+            name: 'Basic',
+            metadata: {
+                'mapbox:autocomposite': true
+            },
+            glyphs: `https://api.mapbox.com/fonts/v1/mapbox/{fontstack}/{range}.pbf?access_token=${token}`,
+            sprite: `https://api.mapbox.com/styles/v1/mapbox/streets-v12/sprite?access_token=${token}`,
+            sources: {
+                'mapbox-streets': {
+                    type: 'vector',
+                    url: `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8.json?secure&access_token=${token}`
+                },
+                'mapbox-terrain': {
+                    type: 'vector',
+                    url: `https://api.mapbox.com/v4/mapbox.mapbox-terrain-v2.json?secure&access_token=${token}`
+                }
+            },
+            layers: [
+                // Background layer
+                {
+                    id: 'background',
+                    type: 'background',
+                    paint: {
+                        'background-color': '#f8f9fa'
+                    }
+                },
+                // Water layers
+                {
+                    id: 'water',
+                    source: 'mapbox-streets',
+                    'source-layer': 'water',
+                    type: 'fill',
+                    paint: {
+                        'fill-color': '#c8d7e0',
+                        'fill-opacity': 1
+                    }
+                },
+                // Add more layers as needed
+                {
+                    id: 'admin-1-2-boundaries',
+                    type: 'line',
+                    source: 'mapbox-streets',
+                    'source-layer': 'admin',
+                    filter: ['all',
+                        ['==', 'admin_level', 2],
+                        ['==', 'maritime', 0]
+                    ],
+                    layout: {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    paint: {
+                        'line-color': '#9e9e9e',
+                        'line-width': 1
+                    }
+                }
+            ]
+        };
+
+        // Initialize the map with the custom style
+        const mapInstance = new mapboxgl.Map({
+            container: mapContainer.current,
+            style: styleWithToken,
+            center: [-98.5795, 39.8283], // Default center (US)
+            zoom: 3,
+            attributionControl: false,
+            transformRequest
+        });
+        
+        // Add navigation control
+        mapInstance.addControl(new mapboxgl.NavigationControl(), 'top-right');
+        
+        // Handle map load
+        mapInstance.on('load', () => {
+            console.log('Map loaded successfully');
+            setMap(mapInstance);
+        });
+        
+        // Handle errors
+        mapInstance.on('error', (e) => {
+            console.error('Map error:', e);
+        });
+        
+        // Cleanup function
+        return () => {
+            console.log('Cleaning up map');
+            if (mapInstance) {
+                mapInstance.remove();
+            }
+        };
+    }, []);
+
     // --- Persistent drawn features ---
     const [savedLines, setSavedLines] = useState([]); // Array of GeoJSON features
     const [savedAreas, setSavedAreas] = useState([]); // Array of GeoJSON features
     const [infoVisible, setInfoVisible] = useState(true);
-    const mapContainer = useRef(null);
     const geocoderContainerRef = useRef(null);
     const markerRef = useRef(null);
     const waypointDrawerRef = useRef(null);
-    const [map, setMap] = useState(null);
     const [mapBearing, setMapBearing] = useState(0);
     const [mapPitch, setMapPitch] = useState(0);
     const [draw, setDraw] = useState(null);

@@ -6,7 +6,23 @@
     "dev": "next dev -p 3006",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "vercel-build": "next build"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
   },
   "dependencies": {
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
@@ -20,7 +36,9 @@
     "@webauthn/server": "^0.1.1",
     "autoprefixer": "^10.4.21",
     "bcryptjs": "^3.0.2",
+    "combined-stream": "^1.0.8",
     "firebase": "^11.6.0",
+    "form-data": "^4.0.3",
     "lucide-react": "^0.488.0",
     "mapbox-gl": "^3.11.0",
     "maplibre-gl": "^5.3.0",

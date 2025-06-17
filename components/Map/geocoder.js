@@ -1,4 +1,4 @@
-﻿// File: components/Map/geocoder.js
+// File: components/Map/geocoder.js
 // Purpose: Initializes and configures the Mapbox geocoder without placing a marker
 
 import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
@@ -13,7 +13,7 @@ export function setupGeocoder(mapInstance, geocoderContainerRef) {
     }
 
     const geocoder = new MapboxGeocoder({
-        accessToken: mapboxgl.accessToken,
+        accessToken: process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || mapboxgl.accessToken,
         mapboxgl: mapboxgl,
         marker: false, // no automatic marker
         placeholder: 'Search locations...',
