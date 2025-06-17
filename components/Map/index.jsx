@@ -20,7 +20,7 @@ import AreaMeasure from './controls/AreaMeasure';
 import LineModal from './controls/LineModal';
 
 
-mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
 const Map = () => {
     // --- Persistent drawn features ---
