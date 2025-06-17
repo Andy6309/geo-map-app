@@ -20,7 +20,7 @@ import AreaMeasure from './controls/AreaMeasure';
 import LineModal from './controls/LineModal';
 
 
-mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
 const Map = () => {
     // --- Persistent drawn features ---
@@ -458,120 +458,152 @@ const Map = () => {
         if (!map) return;
 
         const handleClick = (e) => {
-            if (!map || !draw) return;
-            
-            // Remove any existing popups
-            document.querySelectorAll('.mapboxgl-popup').forEach(popup => popup.remove());
-            
-            // Check if a feature was clicked
-            const features = map.queryRenderedFeatures(e.point, {
-                layers: ['static-lines-layer', 'static-areas-layer']
-            });
-
-            if (features.length > 0) {
-                const feature = features[0];
-                const isArea = feature.layer.id === 'static-areas-layer';
+            try {
+                if (!map || !draw || !map.isStyleLoaded()) return;
                 
-                // Debug: Log the feature to see what we're working with
-                console.log('Clicked feature:', {
-                    feature,
-                    properties: feature.properties,
-                    id: feature.id,
-                    geometryType: feature.geometry.type
-                });
+                // Remove any existing popups
+                document.querySelectorAll('.mapboxgl-popup').forEach(popup => popup.remove());
                 
-                // Get the feature ID from properties or generate one
-                const featureId = feature.properties?.id || feature.id || `${isArea ? 'area' : 'line'}-${Date.now()}`;
-                console.log('Using featureId:', featureId);
+                // Check if the layers exist in the current style
+                let lineLayerExists = false;
+                let areaLayerExists = false;
                 
-                // Create a popup with delete button
-                const popup = new mapboxgl.Popup({ 
-                    closeButton: false,
-                    closeOnClick: true,
-                    className: 'feature-popup'
-                });
-
-                // Create popup content
-                const popupContent = document.createElement('div');
-                popupContent.style.padding = '8px';
+                try {
+                    lineLayerExists = map.getLayer('static-lines-layer') !== undefined;
+                    areaLayerExists = map.getLayer('static-areas-layer') !== undefined;
+                } catch (e) {
+                    console.warn('Error checking layers:', e);
+                    return;
+                }
                 
-                const deleteButton = document.createElement('button');
-                deleteButton.textContent = `Delete ${isArea ? 'Area' : 'Line'}`;
-                deleteButton.style.cssText = `
-                    background: #dc3545;
-                    color: white;
-                    border: none;
-                    padding: 6px 12px;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-size: 14px;
-                    font-weight: 500;
-                `;
+                if (!lineLayerExists && !areaLayerExists) {
+                    console.log('No draw layers available');
+                    return;
+                }
                 
-                // Get or generate a unique ID for the feature
-                const getFeatureId = (feature) => {
-                    // First try to get ID from feature
-                    let id = feature.id || feature.properties?.id;
-                    
-                    // If no ID exists, create one based on coordinates
-                    if (!id && feature.geometry?.coordinates) {
-                        const coordsStr = JSON.stringify(feature.geometry.coordinates);
-                        id = `feature-${Math.abs(coordsStr.split('').reduce(
-                            (hash, char) => ((hash << 5) - hash) + char.charCodeAt(0),
-                            0
-                        ))}`;
-                    }
-                    return id;
-                };
-
-                const clickedFeatureId = getFeatureId(feature);
+                // Only query layers that exist
+                const queryLayers = [];
+                if (lineLayerExists) queryLayers.push('static-lines-layer');
+                if (areaLayerExists) queryLayers.push('static-areas-layer');
                 
-                if (!clickedFeatureId) {
-                    console.error('Could not identify feature for deletion');
-                    popup.remove();
+                if (queryLayers.length === 0) return;
+                
+                // Check if a feature was clicked
+                let features = [];
+                try {
+                    features = map.queryRenderedFeatures(e.point, { layers: queryLayers });
+                } catch (e) {
+                    console.warn('Error querying features:', e);
                     return;
                 }
 
-                // Add click handler directly to the button
-                deleteButton.onclick = (e) => {
-                    e.stopPropagation();
+                if (features.length > 0) {
+                    const feature = features[0];
+                    const isArea = feature.layer.id === 'static-areas-layer';
                     
-                    // Get the current state
-                    const currentState = isArea ? savedAreas : savedLines;
+                    // Debug: Log the feature to see what we're working with
+                    console.log('Clicked feature:', {
+                        feature,
+                        properties: feature.properties,
+                        id: feature.id,
+                        geometryType: feature.geometry.type
+                    });
                     
-                    console.log('Deleting feature with ID:', clickedFeatureId);
+                    // Get the feature ID from properties or generate one
+                    const featureId = feature.properties?.id || feature.id || `${isArea ? 'area' : 'line'}-${Date.now()}`;
+                    console.log('Using featureId:', featureId);
                     
-                    if (isArea) {
-                        setSavedAreas(prev => {
-                            const updated = prev.filter(f => getFeatureId(f) !== clickedFeatureId);
-                            
-                            if (map.getSource('static-areas')) {
-                                map.getSource('static-areas').setData({ 
-                                    type: 'FeatureCollection', 
-                                    features: updated 
-                                });
-                            }
-                            return updated;
-                        });
-                    } else {
-                        setSavedLines(prev => {
-                            const updated = prev.filter(f => getFeatureId(f) !== clickedFeatureId);
-                            
-                            if (map.getSource('static-lines')) {
-                                map.getSource('static-lines').setData({ 
-                                    type: 'FeatureCollection', 
-                                    features: updated 
-                                });
-                            }
-                            return updated;
-                        });
+                    // Create a popup with delete button
+                    const popup = new mapboxgl.Popup({ 
+                        closeButton: false,
+                        closeOnClick: true,
+                        className: 'feature-popup'
+                    });
+
+                    // Create popup content
+                    const popupContent = document.createElement('div');
+                    popupContent.style.padding = '8px';
+                    
+                    const deleteButton = document.createElement('button');
+                    deleteButton.textContent = `Delete ${isArea ? 'Area' : 'Line'}`;
+                    deleteButton.style.cssText = `
+                        background: #dc3545;
+                        color: white;
+                        border: none;
+                        padding: 6px 12px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        font-weight: 500;
+                    `;
+                    
+                    // Get or generate a unique ID for the feature
+                    const getFeatureId = (feature) => {
+                        // First try to get ID from feature
+                        let id = feature.id || feature.properties?.id;
+                        
+                        // If no ID exists, create one based on coordinates
+                        if (!id && feature.geometry?.coordinates) {
+                            const coordsStr = JSON.stringify(feature.geometry.coordinates);
+                            id = `feature-${Math.abs(coordsStr.split('').reduce(
+                                (hash, char) => ((hash << 5) - hash) + char.charCodeAt(0),
+                                0
+                            ))}`;
+                        }
+                        return id;
+                    };
+
+                    const clickedFeatureId = getFeatureId(feature);
+                    
+                    if (!clickedFeatureId) {
+                        console.error('Could not identify feature for deletion');
+                        popup.remove();
+                        return;
                     }
+
+                    // Add click handler directly to the button
+                    deleteButton.onclick = (e) => {
+                        e.stopPropagation();
+                        
+                        // Get the current state
+                        const currentState = isArea ? savedAreas : savedLines;
+                        
+                        console.log('Deleting feature with ID:', clickedFeatureId);
+                        
+                        if (isArea) {
+                            setSavedAreas(prev => {
+                                const updated = prev.filter(f => getFeatureId(f) !== clickedFeatureId);
+                                
+                                if (map.getSource('static-areas')) {
+                                    map.getSource('static-areas').setData({ 
+                                        type: 'FeatureCollection', 
+                                        features: updated 
+                                    });
+                                }
+                                return updated;
+                            });
+                        } else {
+                            setSavedLines(prev => {
+                                const updated = prev.filter(f => getFeatureId(f) !== clickedFeatureId);
+                                
+                                if (map.getSource('static-lines')) {
+                                    map.getSource('static-lines').setData({ 
+                                        type: 'FeatureCollection', 
+                                        features: updated 
+                                    });
+                                }
+                                return updated;
+                            });
+                        }
+                        
+                        popup.remove();
+                    };
                     
-                    popup.remove();
-                };
-                
-                popupContent.appendChild(deleteButton);
-                popup.setDOMContent(popupContent).setLngLat(e.lngLat).addTo(map);
+                    popupContent.appendChild(deleteButton);
+                    popup.setDOMContent(popupContent).setLngLat(e.lngLat).addTo(map);
+                }
+            } catch (e) {
+                console.error('Error in map click handler:', e);
             }
         };
 
