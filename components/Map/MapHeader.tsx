@@ -30,20 +30,12 @@ export default function MapHeader() {
         
         <div className="flex items-center space-x-3">
           {user && (
-            <>
-              <button
-                onClick={() => router.push('/debug')}
-                className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-              >
-                Debug
-              </button>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
-              >
-                Logout
-              </button>
-            </>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+            >
+              Logout
+            </button>
           )}
         </div>
       </div>
