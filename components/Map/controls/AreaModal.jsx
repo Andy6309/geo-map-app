@@ -201,11 +201,29 @@ export default function AreaModal({
       <div style={{ fontWeight: 700, fontSize: '1.2rem', marginBottom: 20 }}>
         Area Details
       </div>
-      <div style={{ marginBottom: 16 }}>
-        <span style={{ fontWeight: 600 }}>Total Area:</span>
-        <span style={{ marginLeft: 8, color: '#1976d2', fontWeight: 600 }}>{totalAreaAcres?.toFixed(2) ?? '0.00'} acres</span>
+      <div style={{ 
+        marginBottom: 20, 
+        padding: '16px', 
+        background: '#f8f9fa', 
+        borderRadius: '8px',
+        border: '2px solid #e9ecef',
+        textAlign: 'center'
+      }}>
+        <div style={{ 
+          fontWeight: 700, 
+          fontSize: '1.1rem', 
+          color: '#1976d2'
+        }}>
+          Total Area: {totalAreaAcres?.toFixed(2) ?? '0.00'} acres
+        </div>
+        <div style={{ 
+          fontSize: '0.9rem', 
+          color: '#666',
+          marginTop: '8px'
+        }}>
+          {totalAreaAcres ? `(${(totalAreaAcres * 43560).toFixed(0)} sq ft)` : ''}
+        </div>
       </div>
-      {/* TODO: Add segment details live here if desired */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '24px' }}>
         <div style={{ 
           backgroundColor: '#f8f9fa', 

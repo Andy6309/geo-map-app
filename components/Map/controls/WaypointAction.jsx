@@ -4,14 +4,15 @@ import mapboxgl from 'mapbox-gl';
 // All UI for adding waypoints is handled in WaypointButton.jsx.
 
 export class WaypointDrawer {
-  constructor(map) {
+  constructor(map, onDelete = null) {
     this.map = map;
     this.markers = [];
+    this.onDelete = onDelete; // Callback for when waypoint is deleted
   }
 
   // Place a waypoint marker at the given location, with optional name/notes
-  addWaypoint(lngLat, name, _color, notes) {
-    console.log('addWaypoint called', { lngLat, map: this.map });
+  addWaypoint(lngLat, name, _color, notes, dbId = null) {
+    console.log('addWaypoint called', { lngLat, map: this.map, dbId });
     // Custom marker element with color
     let markerEl;
     if (_color) {
@@ -31,6 +32,7 @@ export class WaypointDrawer {
       markerEl.dataset.color = _color || '';
       markerEl.dataset.notes = notes || '';
       markerEl.dataset.id = `waypoint-${Date.now()}-${Math.floor(Math.random()*100000)}`;
+      markerEl.dataset.dbId = dbId || ''; // Store database ID
     }
 
     const markerId = markerEl ? markerEl.dataset.id : `waypoint-${Date.now()}-${Math.floor(Math.random()*100000)}`;
@@ -38,6 +40,7 @@ export class WaypointDrawer {
       .setLngLat(lngLat)
       .addTo(this.map);
     marker._waypointId = markerId;
+    marker._dbId = dbId; // Store database ID on marker
     // Attach click handler for editing (always)
     marker.getElement().addEventListener('click', (e) => {
       e.stopPropagation();
@@ -72,14 +75,32 @@ export class WaypointDrawer {
       delBtn.style.borderRadius = '4px';
       delBtn.style.padding = '4px 10px';
       delBtn.style.cursor = 'pointer';
-      delBtn.onclick = () => {
-        // Remove from this.markers and from map
+      delBtn.onclick = async () => {
+        // Optimistic update: Remove from UI immediately
         const idx = this.markers.findIndex(m => m._waypointId === markerId);
+        const removedMarker = idx !== -1 ? this.markers[idx] : null;
+        
         if (idx !== -1) {
           this.markers[idx].remove();
           this.markers.splice(idx, 1);
         }
         popup.remove();
+        
+        // Then delete from database in background
+        if (this.onDelete && marker._dbId) {
+          try {
+            await this.onDelete(marker._dbId);
+            console.log('✅ Waypoint deleted from database:', marker._dbId);
+          } catch (error) {
+            console.error('❌ Error deleting waypoint from database:', error);
+            // Restore marker if database deletion failed
+            if (removedMarker) {
+              removedMarker.addTo(this.map);
+              this.markers.splice(idx, 0, removedMarker);
+            }
+            alert('Failed to delete waypoint from database. Waypoint restored.');
+          }
+        }
       };
       // Draggable toggle
       const dragLabel = document.createElement('label');

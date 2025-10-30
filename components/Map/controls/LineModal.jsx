@@ -193,19 +193,41 @@ export default function LineModal({
       <div style={{ fontWeight: 700, fontSize: '1.2rem', marginBottom: 20 }}>
         Line Details
       </div>
-      <div style={{ marginBottom: 16 }}>
-        <span style={{ fontWeight: 600 }}>Total Distance:</span>
-        <span style={{ marginLeft: 8, color: '#1976d2', fontWeight: 600 }}>{totalDistance}</span>
-      </div>
-      <div style={{ marginBottom: 16, textAlign: 'left' }}>
-        <div style={{ fontWeight: 600, marginBottom: 6 }}>Segments:</div>
-        <ul style={{ paddingLeft: 18, margin: 0, fontSize: '1rem' }}>
-          {segments && segments.length > 0 ? segments.map((seg, i) => (
-              <li key={i}>
-                Segment {i + 1}: <span style={{ color: '#555' }}>{seg.distance ? `${(seg.distance * 5280).toFixed(1)} ft` : ''}</span>
-              </li>
-            )) : <li style={{ color: '#aaa' }}>No segments yet</li>}
-        </ul>
+      <div style={{ 
+        marginBottom: 20, 
+        padding: '16px', 
+        background: '#f8f9fa', 
+        borderRadius: '8px',
+        border: '2px solid #e9ecef'
+      }}>
+        <div style={{ 
+          fontWeight: 700, 
+          fontSize: '1.1rem', 
+          marginBottom: 12,
+          color: '#1976d2',
+          textAlign: 'center'
+        }}>
+          Total Distance: {totalDistance}
+        </div>
+        <div style={{ borderTop: '1px solid #dee2e6', paddingTop: 12 }}>
+          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: '0.95rem' }}>Point-to-Point:</div>
+          <div style={{ fontSize: '0.9rem', lineHeight: '1.6' }}>
+            {segments && segments.length > 0 ? segments.map((seg, i) => (
+              <div key={i} style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between',
+                padding: '4px 8px',
+                background: i % 2 === 0 ? 'white' : 'transparent',
+                borderRadius: '4px'
+              }}>
+                <span style={{ color: '#666' }}>Point {i + 1} → {i + 2}:</span>
+                <span style={{ fontWeight: 600, color: '#1976d2' }}>
+                  {seg.distance ? `${(seg.distance * 5280).toFixed(0)} ft` : ''}
+                </span>
+              </div>
+            )) : <div style={{ color: '#aaa', textAlign: 'center', padding: '8px' }}>Draw line to see distances</div>}
+          </div>
+        </div>
       </div>
       <div style={{marginBottom:'7px', fontWeight:600, fontSize:'1rem', letterSpacing:'-0.5px'}}>Color</div>
       <div style={{display:'flex', gap: 12, justifyContent:'center', marginBottom:'18px', borderRadius:'6px', background:'#f7f7f7', padding:'7px 6px 3px 6px', border:'1px solid #e0e0e0'}}>

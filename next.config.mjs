@@ -8,11 +8,13 @@ const nextConfig = {
   
   // Image optimization
   images: {
-    domains: ['*'], // Add any specific image domains you use
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
   },
-  
-  // Enable SWC minification (faster builds)
-  swcMinify: true,
   
   // Configure page extensions
   pageExtensions: ['tsx', 'ts', 'jsx', 'js'],

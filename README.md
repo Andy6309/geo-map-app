@@ -1,36 +1,111 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Geospatial Map App
 
-## Getting Started
+An interactive geospatial mapping application built with Next.js, Mapbox, and Supabase. Create, manage, and persist waypoints, lines, and areas on a map with user authentication and database storage.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- 🗺️ **Interactive Mapping** - Powered by Mapbox with multiple map styles
+- 📍 **Waypoints** - Create point markers with custom names, colors, icons, and notes
+- 📏 **Lines** - Draw lines with real-time distance measurements
+- 📐 **Areas** - Draw polygons with area calculations
+- 🔐 **User Authentication** - Secure email/password authentication
+- 💾 **Data Persistence** - All geospatial data stored in PostgreSQL with PostGIS
+- 👤 **User-specific Data** - Each user can only see and manage their own data
+- 🔒 **Row Level Security** - Database-level security with Supabase RLS
+
+## Tech Stack
+
+- **Frontend**: Next.js 15, React 19, TypeScript
+- **Mapping**: Mapbox GL JS, Mapbox Draw, Turf.js
+- **Backend**: Next.js API Routes
+- **Database**: Supabase (PostgreSQL + PostGIS)
+- **Authentication**: Supabase Auth
+- **Styling**: Tailwind CSS
+
+## Quick Start
+
+1. **Clone the repository**
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up the database**
+   - Go to your Supabase project dashboard
+   - Navigate to the SQL Editor
+   - Run the migration script from `supabase/migrations/001_initial_schema.sql`
+
+4. **Configure environment variables**
+   - Update `.env.local` with your Supabase and Mapbox credentials
+
+5. **Run the development server**
+   ```bash
+   npm run dev
+   ```
+
+6. **Open the app**
+   - Navigate to [http://localhost:3005](http://localhost:3005)
+
+## Detailed Setup
+
+For detailed setup instructions, see [SETUP.md](./SETUP.md)
+
+## Project Structure
+
+```
+geo-map-app/
+├── app/                    # Next.js app directory
+│   ├── api/               # API routes for CRUD operations
+│   ├── login/             # Login page
+│   ├── register/          # Registration page
+│   └── page.tsx           # Main map page
+├── components/            # React components
+│   └── Map/              # Map component and controls
+├── contexts/             # React contexts
+│   └── AuthContext.tsx   # Authentication context
+├── lib/                  # Utility libraries
+│   ├── api/             # API client functions
+│   └── supabase/        # Supabase client utilities
+├── supabase/            # Database migrations
+└── middleware.ts        # Route protection middleware
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## API Documentation
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+All API endpoints require authentication:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Waypoints**: `/api/waypoints` (GET, POST, PUT, DELETE)
+- **Lines**: `/api/lines` (GET, POST, PUT, DELETE)
+- **Areas**: `/api/areas` (GET, POST, PUT, DELETE)
 
-## Learn More
+## Database Schema
 
-To learn more about Next.js, take a look at the following resources:
+- **profiles**: User profile information
+- **waypoints**: Point locations with PostGIS GEOGRAPHY(POINT)
+- **lines**: Line strings with PostGIS GEOGRAPHY(LINESTRING)
+- **areas**: Polygons with PostGIS GEOGRAPHY(POLYGON)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Development
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+# Run development server
+npm run dev
 
-## Deploy on Vercel
+# Build for production
+npm run build
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# Start production server
+npm start
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Run linter
+npm run lint
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is open source and available under the MIT License.

@@ -20,29 +20,29 @@ html, body, #__next {
   --foreground: #171717;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+/* Tailwind theme configuration */
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --font-sans: var(--font-geist-sans);
+    --font-mono: var(--font-geist-mono);
   }
 }
 
+/* Disable dark mode - force light mode */
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: #ffffff;
+  color: #171717;
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Hide all Mapbox controls */
-.mapboxgl-ctrl,
-.mapboxgl-ctrl-group,
+/* Ensure all text is dark by default */
+* {
+  color: inherit;
+}
+
+/* Hide default Mapbox controls (but NOT the geocoder) */
 .mapboxgl-ctrl-top-right,
 .mapboxgl-ctrl-top-left,
 .mapboxgl-ctrl-bottom-right,
@@ -56,4 +56,19 @@ body {
   overflow: hidden !important;
   position: absolute !important;
   clip: rect(0, 0, 0, 0) !important;
+}
+
+/* Ensure geocoder is visible */
+.mapboxgl-ctrl-geocoder {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  width: auto !important;
+  height: auto !important;
+  overflow: visible !important;
+  position: relative !important;
+  clip: auto !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  border-radius: 4px;
 }

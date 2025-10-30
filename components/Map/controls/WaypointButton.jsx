@@ -16,6 +16,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMapMarkerAlt, faTrash, faSave } from '@fortawesome/free-solid-svg-icons';
 import { WaypointDrawer } from '../controls/WaypointAction';
 import { ConfirmModal } from './ConfirmModal';
+import { waypointAPI } from '@/lib/api/geospatial';
 
 export const WaypointButton = ({ map, mapContainerRef }) => {
   const [waypointType, setWaypointType] = React.useState('deer');
@@ -346,14 +347,13 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
             <span>Draggable</span>
           </label>
           <span style={{fontSize:'0.97em', color:'#888', fontWeight:400, marginLeft:'10px', minWidth:180}}>
-            {`Lng: ${tempLngLat.lng ? tempLngLat.lng.toFixed(6) : '--'}  |  Lat: ${tempLngLat.lat ? tempLngLat.lat.toFixed(6) : '--'}`}
+            Lng: {tempLngLat.lng?.toFixed(6) || 'N/A'}, Lat: {tempLngLat.lat?.toFixed(6) || 'N/A'}
           </span>
         </div>
-        <div style={{height:18}} />
-        <div style={styles.buttonGroup}>
+        <div style={{...styles.buttonGroup, marginTop:'20px'}}>
           <button
             style={{...styles.saveButton, fontSize:'1.13rem', fontWeight:600, padding:'13px', marginBottom:'6px', fontFamily:'inherit'}}
-            onClick={() => {
+            onClick={async () => {
               if (editFeatureId) {
                 handleSaveEdit();
               } else {
@@ -365,12 +365,32 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
                     tempMarkerRef.current.remove();
                     tempMarkerRef.current = null;
                   }
-                  waypointDrawer.current.addWaypoint(lngLat, nameToUse, waypointColor, waypointNotes);
-                  setWaypointName('');
-                  setWaypointNotes('');
-                  setWaypointColor('red');
-                  setWaypointType('deer');
-                  setIsModalOpen(false);
+                  
+                  try {
+                    // Save to database first
+                    const savedWaypoint = await waypointAPI.create({
+                      name: nameToUse,
+                      notes: waypointNotes,
+                      color: waypointColor,
+                      icon_type: waypointType,
+                      longitude: lngLat.lng,
+                      latitude: lngLat.lat,
+                    });
+                    
+                    console.log('✅ Waypoint saved to database:', savedWaypoint.id);
+                    
+                    // Then add to map with database ID
+                    waypointDrawer.current.addWaypoint(lngLat, nameToUse, waypointColor, waypointNotes, savedWaypoint.id);
+                    
+                    setWaypointName('');
+                    setWaypointNotes('');
+                    setWaypointColor('red');
+                    setWaypointType('deer');
+                    setIsModalOpen(false);
+                  } catch (error) {
+                    console.error('❌ Error saving waypoint:', error);
+                    alert('Failed to save waypoint. Please try again.');
+                  }
                 } else {
                   alert('Map not ready');
                 }
