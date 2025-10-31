@@ -108,10 +108,15 @@ export default function MapHeader({ geocoderContainerRef, showSearch, onSearchTo
       {isMobile && showSearch && geocoderContainerRef && (
         <div 
           className="absolute left-0 right-0 bg-white shadow-lg border-t border-gray-200"
+          onClick={(e) => {
+            console.log('🔍 Search dropdown clicked!', e.target);
+            e.stopPropagation();
+          }}
           style={{ 
             top: '100%',
-            zIndex: 9999,
-            pointerEvents: 'auto'
+            zIndex: 99999,
+            pointerEvents: 'auto',
+            isolation: 'isolate'
           }}
         >
           <div className="p-3" style={{ pointerEvents: 'auto' }}>
@@ -122,10 +127,41 @@ export default function MapHeader({ geocoderContainerRef, showSearch, onSearchTo
                 minHeight: '40px',
                 pointerEvents: 'auto',
                 position: 'relative',
-                zIndex: 10000
-              }}
+                zIndex: 100000
+              } as React.CSSProperties}
             />
           </div>
+          
+          {/* Ensure geocoder elements are interactive */}
+          <style jsx global>{`
+            .mapboxgl-ctrl-geocoder {
+              pointer-events: auto !important;
+              position: relative !important;
+              z-index: 100001 !important;
+              touch-action: auto !important;
+            }
+            .mapboxgl-ctrl-geocoder * {
+              pointer-events: auto !important;
+            }
+            .mapboxgl-ctrl-geocoder input {
+              pointer-events: auto !important;
+              cursor: text !important;
+              touch-action: auto !important;
+              -webkit-user-select: text !important;
+              user-select: text !important;
+            }
+            .mapboxgl-ctrl-geocoder--input {
+              pointer-events: auto !important;
+            }
+            .mapboxgl-ctrl-geocoder--suggestions {
+              pointer-events: auto !important;
+              z-index: 100002 !important;
+            }
+            .suggestions {
+              pointer-events: auto !important;
+              z-index: 100002 !important;
+            }
+          `}</style>
         </div>
       )}
     </div>
