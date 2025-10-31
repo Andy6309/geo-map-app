@@ -37,7 +37,7 @@ export default function Home() {
     }
 
     // Adjust header height and bottom offset based on device
-    const headerHeight = isMobile ? '40px' : '57px';
+    const headerHeight = isMobile ? '36px' : '57px';
     const bottomOffset = isMobile ? '60px' : '0px'; // Account for mobile toolbar
 
     return (

@@ -39,8 +39,8 @@ const useIsMobile = () => {
 const getModalStyle = (isMobile) => ({
   overlay: {
     zIndex: 100001,
-    backgroundColor: isMobile ? 'rgba(0, 0, 0, 0.5)' : 'transparent',
-    pointerEvents: isMobile ? 'auto' : 'none',
+    backgroundColor: 'transparent', // Always transparent to allow map interaction
+    pointerEvents: 'none', // Always allow map clicks through
     display: 'flex',
     alignItems: isMobile ? 'flex-end' : 'flex-start',
     justifyContent: isMobile ? 'center' : 'flex-start',
@@ -62,7 +62,7 @@ const getModalStyle = (isMobile) => ({
     borderRadius: isMobile ? '20px 20px 0 0' : '13px',
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.18)',
     fontFamily: "Inter, Segoe UI, Roboto, Arial, sans-serif",
-    pointerEvents: 'auto',
+    pointerEvents: 'auto', // Only modal content is interactive
   }
 });
 

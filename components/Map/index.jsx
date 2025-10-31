@@ -1782,10 +1782,19 @@ const Map = () => {
                 </div>
             )}
             
-            <style jsx>{`
+            <style jsx global>{`
                 @keyframes spin {
                     0% { transform: rotate(0deg); }
                     100% { transform: rotate(360deg); }
+                }
+                
+                /* Hide Mapbox logo and controls on mobile */
+                @media (max-width: 768px) {
+                    .mapboxgl-ctrl-logo,
+                    .mapboxgl-ctrl-attrib,
+                    .mapboxgl-ctrl-attrib-button {
+                        display: none !important;
+                    }
                 }
             `}</style>
             

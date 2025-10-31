@@ -282,8 +282,8 @@ export const WaypointButton = ({ map, mapContainerRef, waypointDrawerRef }) => {
         style={{
           overlay: {
             zIndex: 99999,
-            backgroundColor: isMobile ? 'rgba(0, 0, 0, 0.5)' : 'transparent',
-            pointerEvents: isMobile ? 'auto' : 'none',
+            backgroundColor: 'transparent', // Always transparent to allow map interaction
+            pointerEvents: 'none', // Always allow map clicks through
             display: 'flex',
             alignItems: isMobile ? 'flex-end' : 'flex-start',
             justifyContent: isMobile ? 'center' : 'flex-start',
@@ -304,7 +304,7 @@ export const WaypointButton = ({ map, mapContainerRef, waypointDrawerRef }) => {
             padding: isMobile ? '16px' : '24px 22px 20px 22px',
             borderRadius: isMobile ? '20px 20px 0 0' : '13px',
             boxShadow: '0 4px 20px rgba(0, 0, 0, 0.18)',
-            pointerEvents: 'auto',
+            pointerEvents: 'auto', // Only modal content is interactive
             fontFamily: "Inter, Segoe UI, Roboto, Arial, sans-serif"
           }
         }}

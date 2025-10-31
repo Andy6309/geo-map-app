@@ -33,16 +33,16 @@ export default function MapHeader() {
         </div>
         
         <div className={`flex items-center ${isMobile ? 'space-x-1' : 'space-x-3'}`}>
+          <a 
+            href="https://www.mapbox.com/about/maps/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap`}
+          >
+            © Mapbox
+          </a>
           {!isMobile && (
             <>
-              <a 
-                href="https://www.mapbox.com/about/maps/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                © Mapbox
-              </a>
               <span className="text-gray-300">|</span>
               <a 
                 href="https://www.openstreetmap.org/copyright" 
