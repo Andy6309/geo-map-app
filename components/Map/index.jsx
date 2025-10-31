@@ -1439,14 +1439,6 @@ const Map = () => {
                           }}
                       />
                     )}
-
-                    {/* Mobile Search - Collapsible */}
-                    {isMobile && (
-                      <MobileSearchBar 
-                        geocoderContainerRef={geocoderContainerRef}
-                        show={showMobileSearch}
-                      />
-                    )}
                     
                     {/* Desktop Controls */}
                     {!isMobile && (
@@ -1470,21 +1462,6 @@ const Map = () => {
                             resetNorthAndTilt={resetNorthAndTilt}
                         />
                       </>
-                    )}
-
-                    {/* Mobile Bottom Toolbar */}
-                    {isMobile && (
-                      <MobileBottomToolbar
-                        map={map}
-                        mapBearing={mapBearing}
-                        mapPitch={mapPitch}
-                        resetNorthAndTilt={resetNorthAndTilt}
-                        waypointDrawerRef={waypointDrawerRef}
-                        onLineButtonClick={handleLineButtonClick}
-                        onAreaButtonClick={handleAreaButtonClick}
-                        onSearchToggle={() => setShowMobileSearch(!showMobileSearch)}
-                        showSearch={showMobileSearch}
-                      />
                     )}
 
                     {/* Modals - Shared between mobile and desktop */}
@@ -1667,6 +1644,29 @@ const Map = () => {
                     )}
                     {/* End overlays inside mapContainer */}
                 </div>
+
+                {/* Mobile Search - Collapsible (outside map container) */}
+                {isMobile && (
+                  <MobileSearchBar 
+                    geocoderContainerRef={geocoderContainerRef}
+                    show={showMobileSearch}
+                  />
+                )}
+
+                {/* Mobile Bottom Toolbar - Outside map container */}
+                {isMobile && (
+                  <MobileBottomToolbar
+                    map={map}
+                    mapBearing={mapBearing}
+                    mapPitch={mapPitch}
+                    resetNorthAndTilt={resetNorthAndTilt}
+                    waypointDrawerRef={waypointDrawerRef}
+                    onLineButtonClick={handleLineButtonClick}
+                    onAreaButtonClick={handleAreaButtonClick}
+                    onSearchToggle={() => setShowMobileSearch(!showMobileSearch)}
+                    showSearch={showMobileSearch}
+                  />
+                )}
 
                 {/* Coordinate visibility toggle - Desktop only */}
                 {!isMobile && (

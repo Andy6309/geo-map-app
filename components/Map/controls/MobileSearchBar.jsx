@@ -8,7 +8,7 @@ export const MobileSearchBar = ({ geocoderContainerRef, show }) => {
 
   return (
     <div style={{
-      position: 'absolute',
+      position: 'fixed',
       bottom: '60px', // Just above the bottom toolbar
       left: 0,
       right: 0,

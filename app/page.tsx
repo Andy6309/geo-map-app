@@ -36,15 +36,16 @@ export default function Home() {
         return null;
     }
 
-    // Adjust header height based on device
+    // Adjust header height and bottom offset based on device
     const headerHeight = isMobile ? '40px' : '57px';
+    const bottomOffset = isMobile ? '60px' : '0px'; // Account for mobile toolbar
 
     return (
         <main className="h-screen w-screen relative overflow-hidden">
             <MapHeader />
             <div 
-                className="absolute left-0 right-0 bottom-0 z-0"
-                style={{ top: headerHeight }}
+                className="absolute left-0 right-0 z-0"
+                style={{ top: headerHeight, bottom: bottomOffset }}
             >
                 <Map />
             </div>
