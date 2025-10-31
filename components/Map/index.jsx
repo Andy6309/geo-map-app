@@ -1133,10 +1133,12 @@ const Map = () => {
                 });
                 
                 // Create a popup with edit and delete buttons
+                // On mobile, center the popup; on desktop, show at click location
                 const popup = new mapboxgl.Popup({ 
                     closeButton: false,
                     closeOnClick: true,
-                    className: 'feature-popup'
+                    className: 'feature-popup',
+                    offset: isMobile ? [0, 0] : 25
                 });
 
                 // Create popup content
@@ -1184,7 +1186,14 @@ const Map = () => {
                 
                 popupContent.appendChild(editButton);
                 popupContent.appendChild(deleteButton);
-                popup.setDOMContent(popupContent).setLngLat(e.lngLat).addTo(map);
+                
+                // On mobile, show popup at center of screen; on desktop, at click location
+                if (isMobile) {
+                    const center = map.getCenter();
+                    popup.setDOMContent(popupContent).setLngLat(center).addTo(map);
+                } else {
+                    popup.setDOMContent(popupContent).setLngLat(e.lngLat).addTo(map);
+                }
             }
         };
 

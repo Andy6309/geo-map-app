@@ -58,14 +58,14 @@ export const MobileBottomToolbar = ({
       boxShadow: '0 -2px 10px rgba(0, 0, 0, 0.1)',
     }}>
       {/* Left Section - Drawing Tools */}
-      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
         {/* Search Toggle */}
         <button
           onClick={onSearchToggle}
           style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: '8px',
+            width: '38px',
+            height: '38px',
+            borderRadius: '6px',
             border: '1px solid #007bff',
             backgroundColor: showSearch ? '#007bff' : '#fff',
             color: showSearch ? '#fff' : '#007bff',
@@ -88,9 +88,9 @@ export const MobileBottomToolbar = ({
             if (waypointBtn) waypointBtn.click();
           }}
           style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: '8px',
+            width: '38px',
+            height: '38px',
+            borderRadius: '6px',
             border: '1px solid #007bff',
             backgroundColor: '#fff',
             color: '#007bff',
@@ -110,9 +110,9 @@ export const MobileBottomToolbar = ({
         <button
           onClick={onLineButtonClick}
           style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: '8px',
+            width: '38px',
+            height: '38px',
+            borderRadius: '6px',
             border: '1px solid #007bff',
             backgroundColor: '#fff',
             color: '#007bff',
@@ -132,9 +132,9 @@ export const MobileBottomToolbar = ({
         <button
           onClick={onAreaButtonClick}
           style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: '8px',
+            width: '38px',
+            height: '38px',
+            borderRadius: '6px',
             border: '1px solid #007bff',
             backgroundColor: '#fff',
             color: '#007bff',
@@ -150,38 +150,43 @@ export const MobileBottomToolbar = ({
           ⬡
         </button>
 
-        {/* Layer Toggle */}
+        {/* Layer Toggle with Indicator */}
         <button
           onClick={onLayerToggle}
           style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: '8px',
+            width: '38px',
+            height: '38px',
+            borderRadius: '6px',
             border: '1px solid #007bff',
-            backgroundColor: '#fff',
-            color: '#007bff',
+            backgroundColor: currentStyleId === '3d-satellite' ? '#007bff' : '#fff',
+            color: currentStyleId === '3d-satellite' ? '#fff' : '#007bff',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
             transition: 'all 0.2s',
+            position: 'relative',
           }}
-          title={currentStyleId === '2d-topo' ? 'Switch to 3D Satellite' : 'Switch to 2D Topo'}
+          title={currentStyleId === '2d-topo' ? '2D Topo (tap for 3D)' : '3D Satellite (tap for 2D)'}
         >
-          <Layers size={20} />
+          <Layers size={16} />
+          <span style={{ fontSize: '8px', fontWeight: 'bold', marginTop: '2px' }}>
+            {currentStyleId === '3d-satellite' ? '3D' : '2D'}
+          </span>
         </button>
       </div>
 
       {/* Right Section - Navigation Controls */}
-      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
         {/* Locate Me */}
         <button
           onClick={handleLocate}
           disabled={locating}
           style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: '50%',
+            width: '38px',
+            height: '38px',
+            borderRadius: '6px',
             border: '1px solid #2c2c2c',
             backgroundColor: '#1e1e1e',
             color: '#fff',
@@ -200,9 +205,9 @@ export const MobileBottomToolbar = ({
         <button
           onClick={resetNorthAndTilt}
           style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: '50%',
+            width: '38px',
+            height: '38px',
+            borderRadius: '6px',
             border: '1px solid #ddd',
             backgroundColor: '#000',
             color: '#fff',

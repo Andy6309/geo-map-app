@@ -23,12 +23,14 @@ export const MobileSearchBar = ({ geocoderContainerRef, show }) => {
       boxShadow: '0 -2px 10px rgba(0, 0, 0, 0.1)',
       animation: 'slideUp 0.3s ease-out',
       overflowY: 'auto',
+      pointerEvents: 'auto', // Ensure interactions work
     }}>
       <div
         ref={geocoderContainerRef}
         style={{
           width: '100%',
           minHeight: '46px',
+          pointerEvents: 'auto', // Ensure geocoder is interactive
         }}
       />
       <style jsx>{`
