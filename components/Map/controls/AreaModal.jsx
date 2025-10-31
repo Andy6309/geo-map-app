@@ -50,13 +50,23 @@ export default function AreaModal({
   setAreaColor,
   initialName = '',
   notes = '',
-  setNotes
+  setNotes,
+  editingAreaId = null
 }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmingSave, setConfirmingSave] = useState(false);
   const today = new Date();
   const defaultName = `Area ${today.getMonth() + 1}/${today.getDate()}/${today.getFullYear()}`;
   const [areaName, setAreaName] = useState(initialName || defaultName);
+
+  // Sync state with props when editing
+  useEffect(() => {
+    if (isOpen) {
+      setAreaName(initialName || defaultName);
+      setShowConfirm(false);
+      setConfirmingSave(false);
+    }
+  }, [isOpen, initialName, defaultName]);
 
   // Handle Enter key press to show save confirmation
   useEffect(() => {
@@ -120,8 +130,8 @@ export default function AreaModal({
       <ConfirmModal
         isOpen={!!showConfirm}
         message={confirmingSave 
-          ? 'Are you sure you want to place this area?' 
-          : 'Are you sure you want to cancel area drawing?'}
+          ? (editingAreaId ? 'Are you sure you want to save changes?' : 'Are you sure you want to place this area?')
+          : (editingAreaId ? 'Are you sure you want to cancel editing?' : 'Are you sure you want to cancel area drawing?')}
         onConfirm={confirmingSave ? handleSave : () => handleCancelConfirm(true)}
         onCancel={() => handleCancelConfirm(false)}
       />
@@ -225,33 +235,56 @@ export default function AreaModal({
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '24px' }}>
-        <div style={{ 
-          backgroundColor: '#f8f9fa', 
-          padding: '12px', 
-          borderRadius: '4px', 
-          border: '1px solid #e9ecef',
-          textAlign: 'center',
-          color: '#495057',
-          fontSize: '1rem',
-          marginBottom: '8px'
-        }}>
-          Press enter to place area
-        </div>
+        {!editingAreaId && (
+          <div style={{ 
+            backgroundColor: '#f8f9fa', 
+            padding: '12px', 
+            borderRadius: '4px', 
+            border: '1px solid #e9ecef',
+            textAlign: 'center',
+            color: '#495057',
+            fontSize: '1rem',
+            marginBottom: '8px'
+          }}>
+            Press enter to place area
+          </div>
+        )}
+        {editingAreaId && (
+          <button
+            style={{
+              background:'#007bff', 
+              color:'white', 
+              border:'none', 
+              fontWeight:600, 
+              marginTop:0, 
+              fontFamily:'inherit', 
+              borderRadius:'6px', 
+              padding:'13px', 
+              width:'100%',
+              cursor: 'pointer',
+              fontSize: '16px'
+            }}
+            onClick={() => {
+              setConfirmingSave(true);
+              setShowConfirm(true);
+            }}
+          >Save Changes</button>
+        )}
         <button
           style={{ 
-            background: '#fff', 
-            color: '#dc3545', 
-            border: '1px solid #dc3545', 
+            background: '#eee', 
+            color: '#444', 
+            border: '1px solid #ccc', 
             borderRadius: '6px', 
             padding: '10px 16px', 
-            fontWeight: 600, 
+            fontWeight: 500, 
             fontSize: '16px', 
             cursor: 'pointer',
             width: '100%'
           }}
           onClick={() => setShowConfirm(true)}
         >
-          <FontAwesomeIcon icon={faTrash} style={{ marginRight: '8px' }} />Cancel
+          Cancel
         </button>
       </div>
     </Modal>

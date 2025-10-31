@@ -1,9 +1,29 @@
 // components/controls/LineMeasure.jsx
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { lineString, length as turfLength } from '@turf/turf';
 
 console.log('Custom LineMeasure in use');
+
+// Helper function to get elevation from Mapbox Terrain API
+const getElevation = async (lng, lat) => {
+    try {
+        const response = await fetch(
+            `https://api.mapbox.com/v4/mapbox.mapbox-terrain-v2/tilequery/${lng},${lat}.json?layers=contour&limit=50&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`
+        );
+        const data = await response.json();
+        if (data.features && data.features.length > 0) {
+            // Get elevation from the closest contour
+            return data.features[0].properties.ele || 0;
+        }
+        return 0;
+    } catch (error) {
+        console.error('Error fetching elevation:', error);
+        return 0;
+    }
+};
+
 const LineMeasure = ({ map, draw, onUpdate, lineColor = '#e53935' }) => {
+    const [elevationData, setElevationData] = useState({ gain: 0, loss: 0, min: 0, max: 0 });
     useEffect(() => {
         if (!map || !draw) return;
 
@@ -52,8 +72,36 @@ const LineMeasure = ({ map, draw, onUpdate, lineColor = '#e53935' }) => {
                 });
                 total += dist;
             }
-            const totalFeet = (total * 5280).toFixed(1);
-            if (onUpdate) onUpdate(segments, `${totalFeet} ft`);
+            const totalFeet = total * 5280;
+            const totalDisplay = totalFeet >= 5280 
+                ? `${total.toFixed(2)} mi` 
+                : `${totalFeet.toFixed(1)} ft`;
+            
+            // Calculate elevation data asynchronously
+            if (coords.length >= 2) {
+                (async () => {
+                    const elevations = await Promise.all(
+                        coords.map(coord => getElevation(coord[0], coord[1]))
+                    );
+                    
+                    let gain = 0;
+                    let loss = 0;
+                    let min = elevations[0];
+                    let max = elevations[0];
+                    
+                    for (let i = 1; i < elevations.length; i++) {
+                        const diff = elevations[i] - elevations[i - 1];
+                        if (diff > 0) gain += diff;
+                        if (diff < 0) loss += Math.abs(diff);
+                        if (elevations[i] < min) min = elevations[i];
+                        if (elevations[i] > max) max = elevations[i];
+                    }
+                    
+                    setElevationData({ gain, loss, min, max });
+                })();
+            }
+            
+            if (onUpdate) onUpdate(segments, totalDisplay, elevationData);
         };
 
         // Add custom line source/layer FIRST

@@ -59,7 +59,9 @@ export default function LineModal({
   notes,
   setNotes,
   initialColor = '#e53935',
-  initialName
+  initialName,
+  editingLineId = null,
+  elevation = { gain: 0, loss: 0, min: 0, max: 0 }
 }) {
   // Debug: log segments and distance
   console.log('LineModal segments:', segments, 'totalDistance:', totalDistance, 'notes:', notes);
@@ -70,13 +72,15 @@ export default function LineModal({
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmingSave, setConfirmingSave] = useState(false);
   
-  // Reset confirmation state when modal opens/closes
+  // Sync state with props when editing
   useEffect(() => {
     if (isOpen) {
+      setLineName(initialName || defaultName);
+      setLineColor(initialColor);
       setShowConfirm(false);
       setConfirmingSave(false);
     }
-  }, [isOpen]);
+  }, [isOpen, initialName, initialColor, defaultName]);
 
   // Handle Enter key press to show save confirmation
   useEffect(() => {
@@ -138,8 +142,8 @@ export default function LineModal({
       <ConfirmModal
         isOpen={!!showConfirm}
         message={confirmingSave 
-          ? 'Are you sure you want to place this line?' 
-          : 'Are you sure you want to cancel line drawing?'}
+          ? (editingLineId ? 'Are you sure you want to save changes?' : 'Are you sure you want to place this line?')
+          : (editingLineId ? 'Are you sure you want to cancel editing?' : 'Are you sure you want to cancel line drawing?')}
         onConfirm={confirmingSave ? handleSave : () => handleCancelConfirm(true)}
         onCancel={() => handleCancelConfirm(false)}
       />
@@ -225,9 +229,32 @@ export default function LineModal({
                   {seg.distance ? `${(seg.distance * 5280).toFixed(0)} ft` : ''}
                 </span>
               </div>
-            )) : <div style={{ color: '#aaa', textAlign: 'center', padding: '8px' }}>Draw line to see distances</div>}
+            )) : <div style={{ color: '#aaa', textAlign: 'center', padding: '8px' }}>{editingLineId ? 'Adjust points to see updated distances' : 'Draw line to see distances'}</div>}
           </div>
         </div>
+        {elevation && (elevation.gain > 0 || elevation.loss > 0) && (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #dee2e6' }}>
+            <div style={{ fontWeight: 600, marginBottom: 8, fontSize: '0.95rem' }}>Elevation Profile:</div>
+            <div style={{ fontSize: '0.85rem', lineHeight: '1.8', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', background: '#f0f9ff', borderRadius: '4px' }}>
+                <span style={{ color: '#666' }}>Gain:</span>
+                <span style={{ fontWeight: 600, color: '#059669' }}>{elevation.gain.toFixed(0)} ft</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', background: '#fef2f2', borderRadius: '4px' }}>
+                <span style={{ color: '#666' }}>Loss:</span>
+                <span style={{ fontWeight: 600, color: '#dc2626' }}>{elevation.loss.toFixed(0)} ft</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', background: 'white', borderRadius: '4px' }}>
+                <span style={{ color: '#666' }}>Min:</span>
+                <span style={{ fontWeight: 600, color: '#1976d2' }}>{elevation.min.toFixed(0)} ft</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', background: 'white', borderRadius: '4px' }}>
+                <span style={{ color: '#666' }}>Max:</span>
+                <span style={{ fontWeight: 600, color: '#1976d2' }}>{elevation.max.toFixed(0)} ft</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       <div style={{marginBottom:'7px', fontWeight:600, fontSize:'1rem', letterSpacing:'-0.5px'}}>Color</div>
       <div style={{display:'flex', gap: 12, justifyContent:'center', marginBottom:'18px', borderRadius:'6px', background:'#f7f7f7', padding:'7px 6px 3px 6px', border:'1px solid #e0e0e0'}}>
@@ -246,20 +273,42 @@ export default function LineModal({
       </div>
       <div style={{height:18}} />
       <div style={{ display:'flex', flexDirection:'column', gap:'8px', marginTop:'10px' }}>
-        <div style={{ 
-          backgroundColor: '#f8f9fa', 
-          padding: '12px', 
-          borderRadius: '4px', 
-          border: '1px solid #e9ecef',
-          textAlign: 'center',
-          color: '#495057',
-          fontSize: '1rem',
-          marginBottom: '8px'
-        }}>
-          Press enter to place line
-        </div>
+        {!editingLineId && (
+          <div style={{ 
+            backgroundColor: '#f8f9fa', 
+            padding: '12px', 
+            borderRadius: '4px', 
+            border: '1px solid #e9ecef',
+            textAlign: 'center',
+            color: '#495057',
+            fontSize: '1rem',
+            marginBottom: '8px'
+          }}>
+            Press enter to place line
+          </div>
+        )}
+        {editingLineId && (
+          <button
+            style={{
+              background:'#007bff', 
+              color:'white', 
+              border:'none', 
+              fontWeight:600, 
+              marginTop:0, 
+              fontFamily:'inherit', 
+              borderRadius:'4px', 
+              padding:'13px', 
+              width:'100%',
+              cursor: 'pointer'
+            }}
+            onClick={() => {
+              setConfirmingSave(true);
+              setShowConfirm(true);
+            }}
+          >Save Changes</button>
+        )}
         <button
-          style={{background:'#eee', color:'#444', border:'1px solid #ccc', fontWeight:500, marginTop:0, fontFamily:'inherit', borderRadius:'4px', padding:'13px', width:'100%'}}
+          style={{background:'#eee', color:'#444', border:'1px solid #ccc', fontWeight:500, marginTop:0, fontFamily:'inherit', borderRadius:'4px', padding:'13px', width:'100%', cursor: 'pointer'}}
           onClick={() => setShowConfirm(true)}
         >Cancel</button>
       </div>

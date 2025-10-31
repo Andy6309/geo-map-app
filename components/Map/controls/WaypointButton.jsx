@@ -39,6 +39,16 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
     }
   }, [map]);
 
+  // Use callback to avoid stale closures
+  const handleMarkerClick = React.useCallback((marker) => {
+    console.log('Marker clicked, opening edit modal');
+    setEditFeatureId(marker._dbId || marker._waypointId); // Use database ID if available
+    setWaypointName(marker.getElement().dataset.name || '');
+    setWaypointColor(marker.getElement().dataset.color || 'red');
+    setWaypointNotes(marker.getElement().dataset.notes || '');
+    setIsModalOpen(true);
+  }, []);
+
   useEffect(() => {
     if (!waypointDrawer.current) return;
     waypointDrawer.current.onMarkerDrag = ({ id, lngLat }) => {
@@ -47,14 +57,8 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
       console.log('Waypoint dragged:', id, lngLat);
     };
     // Enable marker click to open modal for editing
-    waypointDrawer.current.onMarkerClick = (marker) => {
-      setEditFeatureId(marker._waypointId);
-      setWaypointName(marker.getElement().dataset.name || '');
-      setWaypointColor(marker.getElement().dataset.color || 'red');
-      setWaypointNotes(marker.getElement().dataset.notes || '');
-      
-      setIsModalOpen(true);
-    };
+    waypointDrawer.current.onMarkerClick = handleMarkerClick;
+    
     // Clean up callbacks on unmount
     return () => {
       if (waypointDrawer.current) {
@@ -62,7 +66,7 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
         waypointDrawer.current.onMarkerDrag = null;
       }
     };
-  }, [waypointDrawer]);
+  }, [waypointDrawer, handleMarkerClick]);
 
   const openModal = () => {
     console.log('Waypoint button clicked, opening modal');
@@ -95,10 +99,16 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
   };
 
   const closeModal = () => {
+    // Only remove temp marker if we're not editing (i.e., creating new)
+    if (tempMarkerRef.current && !editFeatureId) {
+      tempMarkerRef.current.remove();
+      tempMarkerRef.current = null;
+    }
     setIsModalOpen(false);
     setEditFeatureId(null);
     setWaypointName('');
     setWaypointNotes('');
+    setWaypointColor('red'); // Reset color to default
   };
 
   const startAddingWaypoint = (details) => {
@@ -135,14 +145,31 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
     waypointDrawer.current.stopDrawingWaypoint();
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (waypointDrawer.current && editFeatureId !== null) {
-      waypointDrawer.current.updateWaypoint(editFeatureId, {
-        name: waypointName,
-        color: waypointColor,
-        notes: waypointNotes,
-      });
-      closeModal();
+      try {
+        // Update in database
+        await waypointAPI.update({
+          id: editFeatureId,
+          name: waypointName,
+          color: waypointColor,
+          notes: waypointNotes,
+        });
+        
+        console.log('✅ Waypoint updated in database:', editFeatureId);
+        
+        // Update the marker visually
+        waypointDrawer.current.updateWaypoint(editFeatureId, {
+          name: waypointName,
+          color: waypointColor,
+          notes: waypointNotes,
+        });
+        
+        closeModal();
+      } catch (error) {
+        console.error('❌ Error updating waypoint:', error);
+        alert('Failed to update waypoint. Please try again.');
+      }
     }
   };
 
@@ -182,6 +209,7 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
   }, [isModalOpen]);
 
   React.useEffect(() => {
+    // Update temp marker color (when creating new waypoint)
     if (tempMarkerRef.current) {
       const markerEl = tempMarkerRef.current.getElement();
       markerEl.className = 'custom-icon-marker';
@@ -192,7 +220,23 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
       </svg>
     `;
     }
-  }, [waypointColor]);
+    
+    // Update existing marker color in real-time (when editing)
+    if (editFeatureId && waypointDrawer.current && isModalOpen) {
+      const marker = waypointDrawer.current.markers.find(m => m._dbId === editFeatureId || m._waypointId === editFeatureId);
+      if (marker) {
+        const markerEl = marker.getElement();
+        markerEl.innerHTML = `
+          <svg width="36" height="48" viewBox="0 0 36 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 46C18 46 32 30.5 32 19C32 10.1634 25.8366 4 18 4C10.1634 4 4 10.1634 4 19C4 30.5 18 46 18 46Z" fill="#fff" stroke="${waypointColor}" stroke-width="4"/>
+            <circle cx="18" cy="19" r="7" fill="#fff" stroke="${waypointColor}" stroke-width="4"/>
+          </svg>
+        `;
+        // Also update the dataset
+        markerEl.dataset.color = waypointColor;
+      }
+    }
+  }, [waypointColor, editFeatureId, isModalOpen]);
 
   const [showConfirm, setShowConfirm] = React.useState(false);
 
@@ -254,7 +298,8 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
           message={editFeatureId ? 'Are you sure you want to cancel editing this waypoint?' : 'Are you sure you want to cancel adding this waypoint?'}
           onConfirm={() => {
             setShowConfirm(false);
-            if (tempMarkerRef.current) {
+            // Only remove temp marker if we're creating new (not editing)
+            if (tempMarkerRef.current && !editFeatureId) {
               tempMarkerRef.current.remove();
               tempMarkerRef.current = null;
             }
@@ -331,25 +376,28 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
 ))}
         </div>
         <div style={{height:12}} />
-        <div style={{ margin: '10px 0', display:'flex', alignItems:'center', gap:'10px' }}>
-          <label style={{ fontWeight: 500, display:'flex', alignItems:'center', gap:'6px' }}>
-            <input
-              type="checkbox"
-              checked={isDraggable}
-              onChange={e => {
-                setIsDraggable(e.target.checked);
-                if (tempMarkerRef.current) {
-                  tempMarkerRef.current.setDraggable(e.target.checked);
-                }
-              }}
-              style={{ marginRight: 8 }}
-            />
-            <span>Draggable</span>
-          </label>
-          <span style={{fontSize:'0.97em', color:'#888', fontWeight:400, marginLeft:'10px', minWidth:180}}>
-            Lng: {tempLngLat.lng?.toFixed(6) || 'N/A'}, Lat: {tempLngLat.lat?.toFixed(6) || 'N/A'}
-          </span>
-        </div>
+        {/* Only show draggable and coordinates when creating new waypoint, not editing */}
+        {!editFeatureId && (
+          <div style={{ margin: '10px 0', display:'flex', alignItems:'center', gap:'10px' }}>
+            <label style={{ fontWeight: 500, display:'flex', alignItems:'center', gap:'6px' }}>
+              <input
+                type="checkbox"
+                checked={isDraggable}
+                onChange={e => {
+                  setIsDraggable(e.target.checked);
+                  if (tempMarkerRef.current) {
+                    tempMarkerRef.current.setDraggable(e.target.checked);
+                  }
+                }}
+                style={{ marginRight: 8 }}
+              />
+              <span>Draggable</span>
+            </label>
+            <span style={{fontSize:'0.97em', color:'#888', fontWeight:400, marginLeft:'10px', minWidth:180}}>
+              Lng: {tempLngLat.lng?.toFixed(6) || 'N/A'}, Lat: {tempLngLat.lat?.toFixed(6) || 'N/A'}
+            </span>
+          </div>
+        )}
         <div style={{...styles.buttonGroup, marginTop:'20px'}}>
           <button
             style={{...styles.saveButton, fontSize:'1.13rem', fontWeight:600, padding:'13px', marginBottom:'6px', fontFamily:'inherit'}}

@@ -14,7 +14,7 @@ import ZoomControl from './controls/ZoomControl';
 import { WaypointButton } from './controls/WaypointButton';
 import { CrosshairToggle } from './controls/CrosshairToggle';
 import { WaypointDrawer } from './controls/WaypointAction';
-import { length as turfLength, point, lineString } from '@turf/turf';
+import { length as turfLength, point, lineString, area as turfArea } from '@turf/turf';
 import  LineMeasure from './controls/LineMeasure';
 import AreaMeasure from './controls/AreaMeasure';
 import LineModal from './controls/LineModal';
@@ -45,9 +45,11 @@ const Map = () => {
 
     // --- Line Modal State ---
     const [isLineModalOpen, setLineModalOpen] = useState(false);
+    const [editingLineId, setEditingLineId] = useState(null);
 
     // --- Area Modal State ---
     const [isAreaModalOpen, setAreaModalOpen] = useState(false);
+    const [editingAreaId, setEditingAreaId] = useState(null);
     const [areaModalTotal, setAreaModalTotal] = useState(0); // acres
     const [areaModalSegments, setAreaModalSegments] = useState([]);
     const [areaModalColor, setAreaModalColor] = useState('#1976d2'); // default color
@@ -58,6 +60,7 @@ const Map = () => {
     const [lineModalColor, setLineModalColor] = useState('#e53935');
     const [lineModalName, setLineModalName] = useState("");
     const [lineModalNotes, setLineModalNotes] = useState("");
+    const [lineModalElevation, setLineModalElevation] = useState({ gain: 0, loss: 0, min: 0, max: 0 });
 
     // Handler for Area button in toolbar
     const handleAreaButtonClick = () => {
@@ -77,69 +80,185 @@ const Map = () => {
 
     // Handler for closing/canceling the AreaModal
     const handleAreaModalClose = () => {
+        if (draw) {
+            const all = draw.getAll();
+            if (editingAreaId) {
+                // If editing, remove from draw and restore to static layer
+                const editedFeature = all.features.find(f => f.id === editingAreaId || f.properties?.id === editingAreaId);
+                if (editedFeature) {
+                    draw.delete(editingAreaId);
+                    // Restore original feature to static layer
+                    setSavedAreas(prev => {
+                        const exists = prev.some(a => a.id === editingAreaId || a.properties?.id === editingAreaId);
+                        if (!exists) {
+                            const restored = [...prev, editedFeature];
+                            if (map.getSource('static-areas')) {
+                                map.getSource('static-areas').setData({ type: 'FeatureCollection', features: restored });
+                            }
+                            return restored;
+                        }
+                        return prev;
+                    });
+                }
+            } else {
+                // Only remove drawn polygons if creating new
+                if (all && all.features && all.features.length > 0) {
+                    all.features.filter(f => f.geometry.type === 'Polygon').forEach(f => draw.delete(f.id));
+                }
+            }
+            draw.changeMode('simple_select');
+        }
         setAreaModalOpen(false);
+        setEditingAreaId(null);
         setAreaModalTotal(0);
         setAreaModalSegments([]);
         setAreaModalColor('#1976d2');
         setAreaModalName("");
         setAreaModalNotes("");
-        if (draw) {
-            // Remove all drawn polygons (pending)
-            const all = draw.getAll();
-            if (all && all.features && all.features.length > 0) {
-                all.features.filter(f => f.geometry.type === 'Polygon').forEach(f => draw.delete(f.id));
-            }
-            draw.changeMode('simple_select');
-        }
     };
 
     // Handler for saving the area
     const handleAreaModalSave = async (color, name, notes) => {
-        // Save the drawn area (persist to static layer AND database)
-        if (draw && map) {
-            const all = draw.getAll();
-            const areaFeature = all.features.find(f => f.geometry.type === 'Polygon');
-            if (areaFeature) {
-                try {
-                    // Save to database
-                    const savedArea = await areaAPI.create({
-                        name,
-                        notes,
-                        color,
-                        coordinates: areaFeature.geometry.coordinates[0], // First ring of polygon
-                        total_area: areaModalTotal || 0,
-                        perimeter: 0, // Calculate if needed
-                    });
-                    
-                    console.log('✅ Area saved to database:', savedArea.id);
-                    
-                    // Update feature with database ID
-                    areaFeature.id = savedArea.id;
-                    areaFeature.properties = {
-                        id: savedArea.id, // Store ID in properties too for Mapbox
-                        color,
-                        name,
-                        notes,
-                        total_area: savedArea.total_area,
-                        createdAt: savedArea.created_at
-                    };
-                    
-                    setSavedAreas(prev => {
-                        const updated = [...prev, areaFeature];
-                        if (map.getSource('static-areas')) {
-                            map.getSource('static-areas').setData({ type: 'FeatureCollection', features: updated });
+        if (editingAreaId) {
+            // UPDATE existing area
+            try {
+                // Get updated geometry from draw
+                const all = draw.getAll();
+                const drawId = String(editingAreaId);
+                const editedFeature = all.features.find(f => 
+                    String(f.id) === drawId || 
+                    String(f.properties?.id) === drawId ||
+                    f.id === editingAreaId || 
+                    f.properties?.id === editingAreaId
+                );
+                const updatedCoordinates = editedFeature ? editedFeature.geometry.coordinates[0] : null;
+                
+                console.log('Looking for edited area:', editingAreaId, 'Found:', editedFeature);
+                
+                // Calculate new area if coordinates changed
+                let totalArea = null;
+                if (editedFeature) {
+                    const areaSqMeters = turfArea(editedFeature);
+                    totalArea = areaSqMeters * 0.000247105; // Convert to acres
+                }
+                
+                const updatedArea = await areaAPI.update({
+                    id: editingAreaId,
+                    name,
+                    notes,
+                    color,
+                    ...(updatedCoordinates && { coordinates: updatedCoordinates }),
+                    ...(totalArea !== null && { total_area: totalArea }),
+                });
+                
+                console.log('✅ Area updated in database:', editingAreaId);
+                
+                // Remove from draw and add back to static layer
+                if (editedFeature) {
+                    // Use the actual ID from the feature in draw
+                    draw.delete(editedFeature.id);
+                }
+                
+                // Update in state
+                setSavedAreas(prev => {
+                    const updated = prev.map(area => {
+                        if (area.id === editingAreaId || area.properties?.id === editingAreaId) {
+                            return {
+                                ...area,
+                                geometry: updatedCoordinates ? { type: 'Polygon', coordinates: [updatedCoordinates] } : area.geometry,
+                                properties: {
+                                    ...area.properties,
+                                    name,
+                                    notes,
+                                    color,
+                                    total_area: totalArea || area.properties.total_area,
+                                }
+                            };
                         }
-                        return updated;
+                        return area;
                     });
-                    draw.delete(areaFeature.id);
-                } catch (error) {
-                    console.error('❌ Error saving area:', error);
-                    alert('Failed to save area. Please try again.');
-                    return;
+                    
+                    // If feature wasn't in prev (was being edited), add it back
+                    const exists = updated.some(a => a.id === editingAreaId || a.properties?.id === editingAreaId);
+                    if (!exists && editedFeature) {
+                        updated.push({
+                            id: editingAreaId,
+                            type: 'Feature',
+                            geometry: editedFeature.geometry,
+                            properties: {
+                                id: editingAreaId,
+                                name,
+                                notes,
+                                color,
+                                total_area: totalArea,
+                            }
+                        });
+                    }
+                    
+                    if (map.getSource('static-areas')) {
+                        map.getSource('static-areas').setData({ type: 'FeatureCollection', features: updated });
+                    }
+                    return updated;
+                });
+            } catch (error) {
+                console.error('❌ Error updating area:', error);
+                alert('Failed to update area. Please try again.');
+                return;
+            }
+        } else {
+            // CREATE new area
+            if (draw && map) {
+                const all = draw.getAll();
+                const areaFeature = all.features.find(f => f.geometry.type === 'Polygon');
+                if (areaFeature) {
+                    try {
+                        // Calculate area from geometry
+                        const areaSqMeters = turfArea(areaFeature);
+                        const totalAcres = areaSqMeters * 0.000247105; // Convert to acres
+                        
+                        console.log('Creating area with acres:', totalAcres);
+                        
+                        // Save to database
+                        const savedArea = await areaAPI.create({
+                            name,
+                            notes,
+                            color,
+                            coordinates: areaFeature.geometry.coordinates[0], // First ring of polygon
+                            total_area: totalAcres,
+                            perimeter: 0, // Calculate if needed
+                        });
+                        
+                        console.log('✅ Area saved to database:', savedArea.id);
+                        
+                        // Update feature with database ID
+                        areaFeature.id = savedArea.id;
+                        areaFeature.properties = {
+                            id: savedArea.id, // Store ID in properties too for Mapbox
+                            color,
+                            name,
+                            notes,
+                            total_area: savedArea.total_area,
+                            createdAt: savedArea.created_at
+                        };
+                        
+                        setSavedAreas(prev => {
+                            const updated = [...prev, areaFeature];
+                            if (map.getSource('static-areas')) {
+                                map.getSource('static-areas').setData({ type: 'FeatureCollection', features: updated });
+                            }
+                            return updated;
+                        });
+                        draw.delete(areaFeature.id);
+                    } catch (error) {
+                        console.error('❌ Error saving area:', error);
+                        alert('Failed to save area. Please try again.');
+                        return;
+                    }
                 }
             }
         }
         setAreaModalOpen(false);
+        setEditingAreaId(null);
         setAreaModalTotal(0);
         setAreaModalSegments([]);
         setAreaModalColor('#1976d2');
@@ -172,53 +291,147 @@ const Map = () => {
 
     // Handler for saving the line
     const handleLineModalSave = async (color, name, notes) => {
-        // Save the drawn line (persist to static layer AND database)
-        if (draw && map) {
-            const all = draw.getAll();
-            const lineFeature = all.features.find(f => f.geometry.type === 'LineString');
-            if (lineFeature) {
-                try {
-                    // Save to database
-                    const savedLine = await lineAPI.create({
-                        name,
-                        notes,
-                        color,
-                        coordinates: lineFeature.geometry.coordinates,
-                        total_distance: parseFloat(lineModalTotal.replace(/[^\d.]/g, '')) || 0,
-                        segment_distances: lineModalSegments,
-                    });
-                    
-                    console.log('✅ Line saved to database:', savedLine.id);
-                    
-                    // Update feature with database ID
-                    lineFeature.id = savedLine.id;
-                    lineFeature.properties = {
-                        id: savedLine.id, // Store ID in properties too for Mapbox
-                        color,
-                        name,
-                        notes,
-                        total_distance: savedLine.total_distance,
-                        createdAt: savedLine.created_at
-                    };
-                    
-                    setSavedLines(prev => {
-                        const updated = [...prev, lineFeature];
-                        // Update map source
-                        if (map.getSource('static-lines')) {
-                            map.getSource('static-lines').setData({ type: 'FeatureCollection', features: updated });
+        if (editingLineId) {
+            // UPDATE existing line
+            try {
+                // Get updated geometry from draw
+                const all = draw.getAll();
+                const drawId = String(editingLineId);
+                const editedFeature = all.features.find(f => 
+                    String(f.id) === drawId || 
+                    String(f.properties?.id) === drawId ||
+                    f.id === editingLineId || 
+                    f.properties?.id === editingLineId
+                );
+                const updatedCoordinates = editedFeature ? editedFeature.geometry.coordinates : null;
+                
+                console.log('Looking for edited line:', editingLineId, 'Found:', editedFeature);
+                
+                // Calculate new distance if coordinates changed
+                let totalDistance = null;
+                if (updatedCoordinates) {
+                    let total = 0;
+                    for (let i = 1; i < updatedCoordinates.length; i++) {
+                        const seg = lineString([updatedCoordinates[i - 1], updatedCoordinates[i]]);
+                        const dist = turfLength(seg, { units: 'miles' });
+                        total += dist;
+                    }
+                    totalDistance = total * 5280; // Convert to feet
+                }
+                
+                const updatedLine = await lineAPI.update({
+                    id: editingLineId,
+                    name,
+                    notes,
+                    color,
+                    ...(updatedCoordinates && { coordinates: updatedCoordinates }),
+                    ...(totalDistance !== null && { total_distance: totalDistance }),
+                });
+                
+                console.log('✅ Line updated in database:', editingLineId);
+                
+                // Remove from draw and add back to static layer
+                if (editedFeature) {
+                    // Use the actual ID from the feature in draw
+                    draw.delete(editedFeature.id);
+                }
+                
+                // Update in state
+                setSavedLines(prev => {
+                    const updated = prev.map(line => {
+                        if (line.id === editingLineId || line.properties?.id === editingLineId) {
+                            return {
+                                ...line,
+                                geometry: updatedCoordinates ? { type: 'LineString', coordinates: updatedCoordinates } : line.geometry,
+                                properties: {
+                                    ...line.properties,
+                                    name,
+                                    notes,
+                                    color,
+                                    total_distance: totalDistance || line.properties.total_distance,
+                                }
+                            };
                         }
-                        return updated;
+                        return line;
                     });
-                    // Remove from Draw
-                    draw.delete(lineFeature.id);
-                } catch (error) {
-                    console.error('❌ Error saving line:', error);
-                    alert('Failed to save line. Please try again.');
-                    return;
+                    
+                    // If feature wasn't in prev (was being edited), add it back
+                    const exists = updated.some(l => l.id === editingLineId || l.properties?.id === editingLineId);
+                    if (!exists && editedFeature) {
+                        updated.push({
+                            id: editingLineId,
+                            type: 'Feature',
+                            geometry: editedFeature.geometry,
+                            properties: {
+                                id: editingLineId,
+                                name,
+                                notes,
+                                color,
+                                total_distance: totalDistance,
+                            }
+                        });
+                    }
+                    
+                    if (map.getSource('static-lines')) {
+                        map.getSource('static-lines').setData({ type: 'FeatureCollection', features: updated });
+                    }
+                    return updated;
+                });
+            } catch (error) {
+                console.error('❌ Error updating line:', error);
+                alert('Failed to update line. Please try again.');
+                return;
+            }
+        } else {
+            // CREATE new line
+            if (draw && map) {
+                const all = draw.getAll();
+                const lineFeature = all.features.find(f => f.geometry.type === 'LineString');
+                if (lineFeature) {
+                    try {
+                        // Save to database
+                        const savedLine = await lineAPI.create({
+                            name,
+                            notes,
+                            color,
+                            coordinates: lineFeature.geometry.coordinates,
+                            total_distance: parseFloat(lineModalTotal.replace(/[^\d.]/g, '')) || 0,
+                            segment_distances: lineModalSegments,
+                        });
+                        
+                        console.log('✅ Line saved to database:', savedLine.id);
+                        
+                        // Update feature with database ID
+                        lineFeature.id = savedLine.id;
+                        lineFeature.properties = {
+                            id: savedLine.id, // Store ID in properties too for Mapbox
+                            color,
+                            name,
+                            notes,
+                            total_distance: savedLine.total_distance,
+                            createdAt: savedLine.created_at
+                        };
+                        
+                        setSavedLines(prev => {
+                            const updated = [...prev, lineFeature];
+                            // Update map source
+                            if (map.getSource('static-lines')) {
+                                map.getSource('static-lines').setData({ type: 'FeatureCollection', features: updated });
+                            }
+                            return updated;
+                        });
+                        // Remove from Draw
+                        draw.delete(lineFeature.id);
+                    } catch (error) {
+                        console.error('❌ Error saving line:', error);
+                        alert('Failed to save line. Please try again.');
+                        return;
+                    }
                 }
             }
         }
         setLineModalOpen(false);
+        setEditingLineId(null);
         setLineModalSegments([]);
         setLineModalTotal('0 ft');
         setLineModalColor('#e53935');
@@ -232,14 +445,35 @@ const Map = () => {
     // Handler for closing/canceling the modal
     const handleLineModalClose = () => {
         if (draw) {
-            // Remove all drawn lines (pending)
             const all = draw.getAll();
-            if (all && all.features && all.features.length > 0) {
-                all.features.filter(f => f.geometry.type === 'LineString').forEach(f => draw.delete(f.id));
+            if (editingLineId) {
+                // If editing, remove from draw and restore to static layer
+                const editedFeature = all.features.find(f => f.id === editingLineId || f.properties?.id === editingLineId);
+                if (editedFeature) {
+                    draw.delete(editingLineId);
+                    // Restore original feature to static layer
+                    setSavedLines(prev => {
+                        const exists = prev.some(l => l.id === editingLineId || l.properties?.id === editingLineId);
+                        if (!exists) {
+                            const restored = [...prev, editedFeature];
+                            if (map.getSource('static-lines')) {
+                                map.getSource('static-lines').setData({ type: 'FeatureCollection', features: restored });
+                            }
+                            return restored;
+                        }
+                        return prev;
+                    });
+                }
+            } else {
+                // Only remove drawn lines if creating new
+                if (all && all.features && all.features.length > 0) {
+                    all.features.filter(f => f.geometry.type === 'LineString').forEach(f => draw.delete(f.id));
+                }
             }
             draw.changeMode('simple_select');
         }
         setLineModalOpen(false);
+        setEditingLineId(null);
         setLineModalSegments([]);
         setLineModalTotal('0 ft');
         setLineModalColor('#e53935');
@@ -363,6 +597,65 @@ const Map = () => {
                         'line-opacity': 1
                     }
                 });
+                
+                // Add labels for area acres
+                initialMap.addSource('area-labels', {
+                    type: 'geojson',
+                    data: {
+                        type: 'FeatureCollection',
+                        features: savedAreas.map(area => {
+                            // Calculate centroid for label placement
+                            const coords = area.geometry.coordinates[0];
+                            let sumLng = 0, sumLat = 0;
+                            for (let i = 0; i < coords.length - 1; i++) {
+                                sumLng += coords[i][0];
+                                sumLat += coords[i][1];
+                            }
+                            const centroid = [
+                                sumLng / (coords.length - 1),
+                                sumLat / (coords.length - 1)
+                            ];
+                            
+                            return {
+                                type: 'Feature',
+                                geometry: {
+                                    type: 'Point',
+                                    coordinates: centroid
+                                },
+                                properties: {
+                                    acres: area.properties?.total_area || 0,
+                                    name: area.properties?.name || ''
+                                }
+                            };
+                        })
+                    }
+                });
+                
+                initialMap.addLayer({
+                    id: 'area-labels-layer',
+                    type: 'symbol',
+                    source: 'area-labels',
+                    layout: {
+                        'text-field': [
+                            'concat',
+                            ['get', 'name'],
+                            '\n',
+                            ['to-string', ['round', ['get', 'acres']]],
+                            ' ac'
+                        ],
+                        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                        'text-size': 14,
+                        'text-anchor': 'center',
+                        'text-allow-overlap': false,
+                        'text-ignore-placement': false
+                    },
+                    paint: {
+                        'text-color': '#000',
+                        'text-halo-color': '#fff',
+                        'text-halo-width': 2,
+                        'text-halo-blur': 1
+                    }
+                });
             }
         });
 
@@ -409,8 +702,8 @@ const Map = () => {
                     },
                     paint: {
                         'line-color': '#1976d2',
-                        'line-width': 2,
-                        'line-dasharray': [2, 2]
+                        'line-width': 3
+                        // Removed dasharray for solid lines
                     }
                 },
                 // Static lines (hidden)
@@ -638,19 +931,21 @@ const Map = () => {
                 const feature = features[0];
                 const isArea = feature.layer.id === 'static-areas-layer';
                 
-                // Debug: Log the feature to see what we're working with
+                // Get the feature ID from properties
+                const featureId = feature.properties?.id || feature.id;
+                
+                if (!featureId) {
+                    console.error('Could not identify feature');
+                    return;
+                }
+                
                 console.log('Clicked feature:', {
-                    feature,
-                    properties: feature.properties,
-                    id: feature.id,
-                    geometryType: feature.geometry.type
+                    id: featureId,
+                    type: isArea ? 'area' : 'line',
+                    properties: feature.properties
                 });
                 
-                // Get the feature ID from properties or generate one
-                const featureId = feature.properties?.id || feature.id || `${isArea ? 'area' : 'line'}-${Date.now()}`;
-                console.log('Using featureId:', featureId);
-                
-                // Create a popup with delete button
+                // Create a popup with edit and delete buttons
                 const popup = new mapboxgl.Popup({ 
                     closeButton: false,
                     closeOnClick: true,
@@ -659,8 +954,78 @@ const Map = () => {
 
                 // Create popup content
                 const popupContent = document.createElement('div');
-                popupContent.style.padding = '8px';
+                popupContent.style.cssText = 'padding: 8px; display: flex; flex-direction: column; gap: 6px;';
                 
+                // Edit button
+                const editButton = document.createElement('button');
+                editButton.textContent = `Edit ${isArea ? 'Area' : 'Line'}`;
+                editButton.style.cssText = `
+                    background: #007bff;
+                    color: white;
+                    border: none;
+                    padding: 6px 12px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    font-weight: 500;
+                `;
+                
+                editButton.onclick = (e) => {
+                    e.stopPropagation();
+                    popup.remove();
+                    
+                    // Find the feature in saved state
+                    const savedFeature = isArea 
+                        ? savedAreas.find(f => (f.id === featureId || f.properties?.id === featureId))
+                        : savedLines.find(f => (f.id === featureId || f.properties?.id === featureId));
+                    
+                    if (savedFeature && draw) {
+                        // Convert featureId to string for MapboxDraw
+                        const drawId = String(featureId);
+                        
+                        // Add feature to draw for editing with proper structure
+                        const drawFeature = {
+                            type: 'Feature',
+                            id: drawId,
+                            geometry: savedFeature.geometry,
+                            properties: savedFeature.properties || {}
+                        };
+                        
+                        console.log('Adding feature to draw for editing:', drawFeature);
+                        const addedIds = draw.add(drawFeature);
+                        console.log('Added IDs:', addedIds);
+                        
+                        // Use the actual ID returned by draw.add
+                        const actualId = addedIds && addedIds.length > 0 ? addedIds[0] : drawId;
+                        draw.changeMode('direct_select', { featureId: actualId });
+                        
+                        // Remove from static layer temporarily
+                        if (isArea) {
+                            setSavedAreas(prev => prev.filter(f => !(f.id === featureId || f.properties?.id === featureId)));
+                        } else {
+                            setSavedLines(prev => prev.filter(f => !(f.id === featureId || f.properties?.id === featureId)));
+                        }
+                    }
+                    
+                    // Open the appropriate modal in edit mode
+                    if (isArea) {
+                        setEditingAreaId(featureId);
+                        setAreaModalName(feature.properties?.name || '');
+                        setAreaModalNotes(feature.properties?.notes || '');
+                        setAreaModalColor(feature.properties?.color || '#1976d2');
+                        setAreaModalTotal(feature.properties?.total_area || 0);
+                        setAreaModalOpen(true);
+                    } else {
+                        setEditingLineId(featureId);
+                        setLineModalName(feature.properties?.name || '');
+                        setLineModalNotes(feature.properties?.notes || '');
+                        setLineModalColor(feature.properties?.color || '#e53935');
+                        setLineModalTotal(feature.properties?.total_distance ? `${feature.properties.total_distance} ft` : '0 ft');
+                        setLineModalOpen(true);
+                    }
+                };
+                
+                // Delete button
                 const deleteButton = document.createElement('button');
                 deleteButton.textContent = `Delete ${isArea ? 'Area' : 'Line'}`;
                 deleteButton.style.cssText = `
@@ -674,47 +1039,37 @@ const Map = () => {
                     font-weight: 500;
                 `;
                 
-                // Get or generate a unique ID for the feature
-                const getFeatureId = (feature) => {
-                    // First try to get ID from feature
-                    let id = feature.id || feature.properties?.id;
-                    
-                    // If no ID exists, create one based on coordinates
-                    if (!id && feature.geometry?.coordinates) {
-                        const coordsStr = JSON.stringify(feature.geometry.coordinates);
-                        id = `feature-${Math.abs(coordsStr.split('').reduce(
-                            (hash, char) => ((hash << 5) - hash) + char.charCodeAt(0),
-                            0
-                        ))}`;
-                    }
-                    return id;
-                };
-
-                const clickedFeatureId = getFeatureId(feature);
-                
-                if (!clickedFeatureId) {
-                    console.error('Could not identify feature for deletion');
-                    popup.remove();
-                    return;
-                }
-
-                // Add click handler directly to the button
                 deleteButton.onclick = async (e) => {
                     e.stopPropagation();
                     
-                    console.log('Deleting feature:', {
-                        id: clickedFeatureId,
-                        feature: feature,
-                        properties: feature.properties,
-                        isArea: isArea
-                    });
+                    // Also remove from draw if it's currently being edited
+                    if (draw) {
+                        const all = draw.getAll();
+                        const inDraw = all.features.find(f => f.id === featureId || f.properties?.id === featureId);
+                        if (inDraw) {
+                            draw.delete(featureId);
+                        }
+                    }
+                    
+                    // Clear any custom area/line sources that might be showing this feature
+                    if (isArea && map.getSource('custom-area')) {
+                        map.getSource('custom-area').setData({ type: 'FeatureCollection', features: [] });
+                        if (map.getSource('area-vertex-points')) {
+                            map.getSource('area-vertex-points').setData({ type: 'FeatureCollection', features: [] });
+                        }
+                    } else if (!isArea && map.getSource('custom-line')) {
+                        map.getSource('custom-line').setData({ type: 'FeatureCollection', features: [] });
+                        if (map.getSource('vertex-points')) {
+                            map.getSource('vertex-points').setData({ type: 'FeatureCollection', features: [] });
+                        }
+                    }
                     
                     // Optimistic update: Remove from UI immediately
                     let removedFeature = null;
                     if (isArea) {
                         setSavedAreas(prev => {
-                            removedFeature = prev.find(f => getFeatureId(f) === clickedFeatureId);
-                            const updated = prev.filter(f => getFeatureId(f) !== clickedFeatureId);
+                            removedFeature = prev.find(f => (f.id === featureId || f.properties?.id === featureId));
+                            const updated = prev.filter(f => !(f.id === featureId || f.properties?.id === featureId));
                             
                             if (map.getSource('static-areas')) {
                                 map.getSource('static-areas').setData({ 
@@ -726,8 +1081,8 @@ const Map = () => {
                         });
                     } else {
                         setSavedLines(prev => {
-                            removedFeature = prev.find(f => getFeatureId(f) === clickedFeatureId);
-                            const updated = prev.filter(f => getFeatureId(f) !== clickedFeatureId);
+                            removedFeature = prev.find(f => (f.id === featureId || f.properties?.id === featureId));
+                            const updated = prev.filter(f => !(f.id === featureId || f.properties?.id === featureId));
                             
                             if (map.getSource('static-lines')) {
                                 map.getSource('static-lines').setData({ 
@@ -744,19 +1099,14 @@ const Map = () => {
                     // Then delete from database in background
                     try {
                         if (isArea) {
-                            await areaAPI.delete(clickedFeatureId);
-                            console.log('✅ Area deleted from database:', clickedFeatureId);
+                            await areaAPI.delete(featureId);
+                            console.log('✅ Area deleted from database:', featureId);
                         } else {
-                            await lineAPI.delete(clickedFeatureId);
-                            console.log('✅ Line deleted from database:', clickedFeatureId);
+                            await lineAPI.delete(featureId);
+                            console.log('✅ Line deleted from database:', featureId);
                         }
                     } catch (error) {
-                        console.error('❌ Error deleting from database:', {
-                            error,
-                            id: clickedFeatureId,
-                            isArea,
-                            errorMessage: error.message
-                        });
+                        console.error('❌ Error deleting from database:', error);
                         // Restore feature if database deletion failed
                         if (removedFeature) {
                             if (isArea) {
@@ -787,6 +1137,7 @@ const Map = () => {
                     }
                 };
                 
+                popupContent.appendChild(editButton);
                 popupContent.appendChild(deleteButton);
                 popup.setDOMContent(popupContent).setLngLat(e.lngLat).addTo(map);
             }
@@ -812,6 +1163,40 @@ const Map = () => {
         if (map && map.getSource('static-areas')) {
             map.getSource('static-areas').setData({ type: 'FeatureCollection', features: savedAreas });
         }
+        
+        // Update area labels
+        if (map && map.getSource('area-labels')) {
+            const labelFeatures = savedAreas.map(area => {
+                // Calculate centroid for label placement
+                const coords = area.geometry.coordinates[0];
+                let sumLng = 0, sumLat = 0;
+                for (let i = 0; i < coords.length - 1; i++) {
+                    sumLng += coords[i][0];
+                    sumLat += coords[i][1];
+                }
+                const centroid = [
+                    sumLng / (coords.length - 1),
+                    sumLat / (coords.length - 1)
+                ];
+                
+                return {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: centroid
+                    },
+                    properties: {
+                        acres: area.properties?.total_area || 0,
+                        name: area.properties?.name || ''
+                    }
+                };
+            });
+            
+            map.getSource('area-labels').setData({
+                type: 'FeatureCollection',
+                features: labelFeatures
+            });
+        }
     }, [savedAreas, map]);
 
     useEffect(() => {
@@ -824,9 +1209,12 @@ const Map = () => {
     }, [infoVisible, map]);
 
     // Memoized update callbacks to avoid infinite render loops
-    const handleLineMeasureUpdate = useCallback((segments, total) => {
+    const handleLineMeasureUpdate = useCallback((segments, total, elevation) => {
         setLineModalSegments(segments);
         setLineModalTotal(total);
+        if (elevation) {
+            setLineModalElevation(elevation);
+        }
     }, []);
     const handleAreaMeasureUpdate = useCallback((segments, totalAreaAcres) => {
         setAreaModalSegments(segments);
@@ -1054,6 +1442,8 @@ const Map = () => {
       setNotes={setLineModalNotes}
       initialColor={lineModalColor}
       initialName={lineModalName}
+      editingLineId={editingLineId}
+      elevation={lineModalElevation}
     />
   </>
 )}
@@ -1072,6 +1462,7 @@ const Map = () => {
                       initialName={areaModalName}
                       notes={areaModalNotes}
                       setNotes={setAreaModalNotes}
+                      editingAreaId={editingAreaId}
                     />
 
                     <div

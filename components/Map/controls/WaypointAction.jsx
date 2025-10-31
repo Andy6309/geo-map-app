@@ -66,6 +66,26 @@ export class WaypointDrawer {
       const infoDiv = document.createElement('div');
       infoDiv.style.marginRight = '12px';
       infoDiv.innerHTML = `<strong>${marker.getElement().dataset.name || ''}</strong>${marker.getElement().dataset.notes ? `<br/>${marker.getElement().dataset.notes}` : ''}`;
+      
+      // Edit button
+      const editBtn = document.createElement('button');
+      editBtn.textContent = 'Edit';
+      editBtn.style.background = '#007bff';
+      editBtn.style.color = 'white';
+      editBtn.style.border = 'none';
+      editBtn.style.borderRadius = '4px';
+      editBtn.style.padding = '4px 10px';
+      editBtn.style.cursor = 'pointer';
+      editBtn.style.marginRight = '6px';
+      editBtn.onclick = (e) => {
+        e.stopPropagation();
+        popup.remove();
+        // Trigger the onMarkerClick callback if it exists
+        if (this.onMarkerClick) {
+          this.onMarkerClick(marker);
+        }
+      };
+      
       // Delete button
       const delBtn = document.createElement('button');
       delBtn.textContent = 'Delete';
@@ -119,6 +139,7 @@ export class WaypointDrawer {
       dragLabel.appendChild(document.createTextNode('Draggable'));
       // Add to popup
       popup.appendChild(infoDiv);
+      popup.appendChild(editBtn);
       popup.appendChild(delBtn);
       popup.appendChild(dragLabel);
       // Attach popup to map container at marker position
@@ -197,14 +218,34 @@ export class WaypointDrawer {
 
   // Method to update a waypoint (called during editing)
   updateWaypoint(id, { name, color, notes }) {
-    const marker = this.markers.find(m => m._waypointId === id);
+    // Find marker by database ID or waypoint ID
+    const marker = this.markers.find(m => m._dbId === id || m._waypointId === id);
     if (marker) {
       const markerEl = marker.getElement();
-      const iconEl = markerEl.querySelector('.custom-icon-marker svg circle');
-      if (iconEl && color) {
-        iconEl.setAttribute('fill', color);
+      
+      // Update stored data attributes
+      if (markerEl.dataset) {
+        markerEl.dataset.name = name || '';
+        markerEl.dataset.color = color || '';
+        markerEl.dataset.notes = notes || '';
       }
-    }  // Update other properties like name and notes if applicable
+      
+      // Update the marker's visual appearance (color)
+      if (color) {
+        markerEl.innerHTML = `
+          <svg width="36" height="48" viewBox="0 0 36 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 46C18 46 32 30.5 32 19C32 10.1634 25.8366 4 18 4C10.1634 4 4 10.1634 4 19C4 30.5 18 46 18 46Z" fill="#fff" stroke="${color}" stroke-width="4"/>
+            <circle cx="18" cy="19" r="7" fill="#fff" stroke="${color}" stroke-width="4"/>
+          </svg>
+        `;
+      }
+      
+      // Update the popup if it exists
+      if (name || notes) {
+        const popupContent = `<strong>${name || ''}</strong>${notes ? `<br/>${notes}` : ''}`;
+        marker.setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(popupContent));
+      }
+    }
   }
 
   // Method to remove a waypoint
