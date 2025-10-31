@@ -5,35 +5,57 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSave, faTrash, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { ConfirmModal } from './ConfirmModal';
 
-// Modal styles matching LineModal/Waypoint modal for consistency
-const modalStyle = {
+// Helper to detect mobile
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = typeof window !== 'undefined' ? window.navigator.userAgent : '';
+      const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+      const isMobileDevice = mobileRegex.test(userAgent);
+      const isSmallScreen = typeof window !== 'undefined' ? window.innerWidth < 768 : false;
+      setIsMobile(isMobileDevice || isSmallScreen);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
+  return isMobile;
+};
+
+// Modal styles - responsive for mobile
+const getModalStyle = (isMobile) => ({
   overlay: {
     zIndex: 100001,
-    backgroundColor: 'transparent',
-    pointerEvents: 'none',
+    backgroundColor: isMobile ? 'rgba(0, 0, 0, 0.5)' : 'transparent',
+    pointerEvents: isMobile ? 'auto' : 'none',
     display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'flex-start',
+    alignItems: isMobile ? 'flex-end' : 'flex-start',
+    justifyContent: isMobile ? 'center' : 'flex-start',
   },
   content: {
     position: 'relative',
-    left: '30px',
-    top: '30px',
-    width: '100%',
-    maxWidth: '360px',
-    height: '600px',
-    maxHeight: '80vh',
+    left: isMobile ? '0' : '30px',
+    top: isMobile ? 'auto' : '30px',
+    bottom: isMobile ? '60px' : 'auto', // Above mobile toolbar
+    width: isMobile ? '100%' : '100%',
+    maxWidth: isMobile ? '100%' : '360px',
+    height: isMobile ? '25vh' : '600px',
+    maxHeight: isMobile ? '25vh' : '80vh',
     overflowY: 'auto',
     border: 'none',
     zIndex: 100002,
     background: '#fff',
-    padding: '24px 22px 20px 22px',
-    borderRadius: '13px',
+    padding: isMobile ? '16px' : '24px 22px 20px 22px',
+    borderRadius: isMobile ? '20px 20px 0 0' : '13px',
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.18)',
     fontFamily: "Inter, Segoe UI, Roboto, Arial, sans-serif",
     pointerEvents: 'auto',
   }
-};
+});
 
 // Only blue color option
 const colorOptions = [
@@ -55,6 +77,7 @@ export default function AreaModal({
 }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmingSave, setConfirmingSave] = useState(false);
+  const isMobile = useIsMobile();
   const today = new Date();
   const defaultName = `Area ${today.getMonth() + 1}/${today.getDate()}/${today.getFullYear()}`;
   const [areaName, setAreaName] = useState(initialName || defaultName);
@@ -117,7 +140,7 @@ export default function AreaModal({
     <Modal
       isOpen={isOpen}
       onRequestClose={() => setShowConfirm(true)}
-      style={modalStyle}
+      style={getModalStyle(isMobile)}
       contentLabel="Add/Edit Area"
       ariaHideApp={false}
       parentSelector={() => document.body}

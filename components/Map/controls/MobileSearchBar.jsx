@@ -12,6 +12,7 @@ export const MobileSearchBar = ({ geocoderContainerRef, show }) => {
       bottom: '60px', // Just above the bottom toolbar
       left: 0,
       right: 0,
+      height: '70px', // Fixed height for search bar
       backgroundColor: 'rgba(255, 255, 255, 0.98)',
       backdropFilter: 'blur(10px)',
       borderTop: '1px solid rgba(0, 0, 0, 0.1)',
@@ -19,11 +20,14 @@ export const MobileSearchBar = ({ geocoderContainerRef, show }) => {
       zIndex: 999,
       boxShadow: '0 -2px 10px rgba(0, 0, 0, 0.1)',
       animation: 'slideUp 0.3s ease-out',
+      display: 'flex',
+      alignItems: 'center',
     }}>
       <div
         ref={geocoderContainerRef}
         style={{
           width: '100%',
+          flex: 1,
         }}
       />
       <style jsx>{`

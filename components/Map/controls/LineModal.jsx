@@ -14,35 +14,57 @@ if (typeof window !== 'undefined') {
   }
 }
 
-// Modal styles matching Waypoint modal for visual and functional consistency
-const modalStyle = {
+// Helper to detect mobile
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = typeof window !== 'undefined' ? window.navigator.userAgent : '';
+      const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+      const isMobileDevice = mobileRegex.test(userAgent);
+      const isSmallScreen = typeof window !== 'undefined' ? window.innerWidth < 768 : false;
+      setIsMobile(isMobileDevice || isSmallScreen);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
+  return isMobile;
+};
+
+// Modal styles - responsive for mobile
+const getModalStyle = (isMobile) => ({
   overlay: {
     zIndex: 100001,
-    backgroundColor: 'transparent', // allow map interaction
-    pointerEvents: 'none', // allow all map clicks through except modal content
+    backgroundColor: isMobile ? 'rgba(0, 0, 0, 0.5)' : 'transparent',
+    pointerEvents: isMobile ? 'auto' : 'none',
     display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'flex-start',
+    alignItems: isMobile ? 'flex-end' : 'flex-start',
+    justifyContent: isMobile ? 'center' : 'flex-start',
   },
   content: {
     position: 'relative',
-    left: '30px',
-    top: '30px',
-    width: '100%',
-    maxWidth: '360px',
-    height: '600px',
-    maxHeight: '80vh',
+    left: isMobile ? '0' : '30px',
+    top: isMobile ? 'auto' : '30px',
+    bottom: isMobile ? '60px' : 'auto', // Above mobile toolbar
+    width: isMobile ? '100%' : '100%',
+    maxWidth: isMobile ? '100%' : '360px',
+    height: isMobile ? '25vh' : '600px',
+    maxHeight: isMobile ? '25vh' : '80vh',
     overflowY: 'auto',
     border: 'none',
     zIndex: 100002,
     background: '#fff',
-    padding: '24px 22px 20px 22px',
-    borderRadius: '13px',
+    padding: isMobile ? '16px' : '24px 22px 20px 22px',
+    borderRadius: isMobile ? '20px 20px 0 0' : '13px',
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.18)',
     fontFamily: "Inter, Segoe UI, Roboto, Arial, sans-serif",
-    pointerEvents: 'auto', // Modal content is interactive
+    pointerEvents: 'auto',
   }
-};
+});
 
 // Only red color option
 const colorOptions = [
@@ -71,6 +93,7 @@ export default function LineModal({
   const [lineColor, setLineColor] = useState(initialColor);
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmingSave, setConfirmingSave] = useState(false);
+  const isMobile = useIsMobile();
   
   // Sync state with props when editing
   useEffect(() => {
@@ -129,7 +152,7 @@ export default function LineModal({
       isOpen={isOpen}
       onRequestClose={() => setShowConfirm(true)}
       aria-label="Line Modal"
-      style={modalStyle}
+      style={getModalStyle(isMobile)}
       contentLabel="Add/Edit Line"
       ariaHideApp={false}
       parentSelector={() => document.body}

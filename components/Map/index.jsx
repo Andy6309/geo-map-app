@@ -1440,6 +1440,17 @@ const Map = () => {
                       />
                     )}
                     
+                    {/* Hidden WaypointButton for mobile toolbar to trigger */}
+                    {isMobile && draw && map && (
+                      <div style={{ display: 'none' }}>
+                        <WaypointButton 
+                          map={map} 
+                          mapContainerRef={mapContainer} 
+                          waypointDrawerRef={waypointDrawerRef}
+                        />
+                      </div>
+                    )}
+
                     {/* Desktop Controls */}
                     {!isMobile && (
                       <>

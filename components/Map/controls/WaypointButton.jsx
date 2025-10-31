@@ -1,6 +1,31 @@
 import React, { useState, useEffect, useRef } from 'react';
-import mapboxgl from 'mapbox-gl';
 import Modal from 'react-modal';
+import mapboxgl from 'mapbox-gl';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faMapMarkerAlt, faSave, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { ConfirmModal } from './ConfirmModal';
+import { waypointAPI } from '@/lib/api/geospatial';
+
+// Helper to detect mobile
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = typeof window !== 'undefined' ? window.navigator.userAgent : '';
+      const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+      const isMobileDevice = mobileRegex.test(userAgent);
+      const isSmallScreen = typeof window !== 'undefined' ? window.innerWidth < 768 : false;
+      setIsMobile(isMobileDevice || isSmallScreen);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
+  return isMobile;
+};
 
 // Ensure accessibility and visibility for react-modal
 if (typeof window !== 'undefined') {
@@ -12,11 +37,7 @@ if (typeof window !== 'undefined') {
   }
 }
 
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMapMarkerAlt, faTrash, faSave } from '@fortawesome/free-solid-svg-icons';
 import { WaypointDrawer } from '../controls/WaypointAction';
-import { ConfirmModal } from './ConfirmModal';
-import { waypointAPI } from '@/lib/api/geospatial';
 
 export const WaypointButton = ({ map, mapContainerRef, waypointDrawerRef }) => {
   const [waypointType, setWaypointType] = React.useState('deer');
@@ -30,6 +51,7 @@ export const WaypointButton = ({ map, mapContainerRef, waypointDrawerRef }) => {
   const [isAddingWaypoint, setIsAddingWaypoint] = useState(false);
   const [pendingWaypointDetails, setPendingWaypointDetails] = useState(null);
   const tempMarkerRef = useRef(null);
+  const isMobile = useIsMobile();
 
   // Use callback to avoid stale closures
   const handleMarkerClick = React.useCallback((marker) => {
@@ -260,25 +282,29 @@ export const WaypointButton = ({ map, mapContainerRef, waypointDrawerRef }) => {
         style={{
           overlay: {
             zIndex: 99999,
-            backgroundColor: 'transparent', // No blur or darken
-            pointerEvents: 'none', // allow map interaction
+            backgroundColor: isMobile ? 'rgba(0, 0, 0, 0.5)' : 'transparent',
+            pointerEvents: isMobile ? 'auto' : 'none',
+            display: 'flex',
+            alignItems: isMobile ? 'flex-end' : 'flex-start',
+            justifyContent: isMobile ? 'center' : 'flex-start',
           },
           content: {
-            position: 'absolute',
-            left: '30px',
-            top: '30px',
-            width: '100%',
-            maxWidth: '360px',
-            height: '600px',      // sets a fixed height
-            maxHeight: '80vh',    // sets a maximum height relative to the viewport
-            overflowY: 'auto',    // enables scrolling if content exceeds the height
+            position: 'relative',
+            left: isMobile ? '0' : '30px',
+            top: isMobile ? 'auto' : '30px',
+            bottom: isMobile ? '60px' : 'auto',
+            width: isMobile ? '100%' : '100%',
+            maxWidth: isMobile ? '100%' : '360px',
+            height: isMobile ? '25vh' : '600px',
+            maxHeight: isMobile ? '25vh' : '80vh',
+            overflowY: 'auto',
             border: 'none',
             zIndex: 100000,
             background: '#fff',
-            padding: '24px 22px 20px 22px',
-            borderRadius: '13px',
+            padding: isMobile ? '16px' : '24px 22px 20px 22px',
+            borderRadius: isMobile ? '20px 20px 0 0' : '13px',
             boxShadow: '0 4px 20px rgba(0, 0, 0, 0.18)',
-            pointerEvents: 'auto', // modal itself is interactive
+            pointerEvents: 'auto',
             fontFamily: "Inter, Segoe UI, Roboto, Arial, sans-serif"
           }
         }}
