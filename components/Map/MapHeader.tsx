@@ -7,11 +7,9 @@ import { Search } from 'lucide-react';
 
 interface MapHeaderProps {
   geocoderContainerRef?: React.RefObject<HTMLDivElement | null>;
-  showSearch?: boolean;
-  onSearchToggle?: () => void;
 }
 
-export default function MapHeader({ geocoderContainerRef, showSearch, onSearchToggle }: MapHeaderProps) {
+export default function MapHeader({ geocoderContainerRef }: MapHeaderProps) {
   const { user, signOut } = useAuth();
   const router = useRouter();
   const isMobile = useIsMobile();
@@ -29,33 +27,18 @@ export default function MapHeader({ geocoderContainerRef, showSearch, onSearchTo
             <h1 className={`${isMobile ? 'text-sm' : 'text-xl'} font-bold text-gray-900 whitespace-nowrap`}>
               {isMobile ? 'Geo Map' : 'Geospatial Map'}
             </h1>
-          {user && !isMobile && (
-            <div className="flex items-center space-x-2 text-sm">
-              <span className="text-gray-500">|</span>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-gray-700 font-medium truncate max-w-[150px]">{user.email}</span>
+            {user && !isMobile && (
+              <div className="flex items-center space-x-2 text-sm">
+                <span className="text-gray-500">|</span>
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-gray-700 font-medium truncate max-w-[150px]">{user.email}</span>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
         
-        <div className={`flex items-center ${isMobile ? 'space-x-1' : 'space-x-3'}`}>
-          {/* Search Button - Mobile Only */}
-          {isMobile && onSearchToggle && (
-            <button
-              onClick={onSearchToggle}
-              className={`p-1.5 rounded-md transition-colors ${
-                showSearch 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-              title="Search"
-            >
-              <Search size={16} />
-            </button>
-          )}
-          
+          <div className={`flex items-center ${isMobile ? 'space-x-1' : 'space-x-3'}`}>
           <a 
             href="https://www.mapbox.com/about/maps/" 
             target="_blank" 
@@ -91,18 +74,16 @@ export default function MapHeader({ geocoderContainerRef, showSearch, onSearchTo
         </div>
       </div>
       
-      {/* Search Dropdown - Mobile Only */}
-      {isMobile && showSearch && geocoderContainerRef && (
+      {/* Search Bar - Always visible on Mobile */}
+      {isMobile && geocoderContainerRef && (
         <div 
           className="absolute left-0 right-0 bg-white shadow-lg border-t border-gray-200"
           style={{ 
             top: '100%',
-            zIndex: 999,
-            maxHeight: '50vh',
-            overflowY: 'auto'
+            zIndex: 999
           }}
         >
-          <div className="p-3">
+          <div className="p-2">
             <div 
               ref={geocoderContainerRef}
               style={{ 

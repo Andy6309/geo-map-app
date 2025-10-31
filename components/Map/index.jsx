@@ -25,7 +25,8 @@ import { MobileSearchBar } from './controls/MobileSearchBar';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
-const Map = ({ onSearchToggle, showSearch, geocoderContainerRef: externalGeocoderRef }) => {
+const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSearch }) => {
+    // Note: onSearchToggle and showSearch are no longer used - search is always visible on mobile
     const { user } = useAuth();
     
     // Mobile detection
@@ -61,7 +62,6 @@ const Map = ({ onSearchToggle, showSearch, geocoderContainerRef: externalGeocode
     const [currentStyleId, setCurrentStyleId] = useState('3d-satellite'); // Track current style ID, default to 3D Satellite
     const [dataLoaded, setDataLoaded] = useState(false);
     const [isLoadingData, setIsLoadingData] = useState(false);
-    const [showMobileSearch, setShowMobileSearch] = useState(false);
 
     // --- Line Modal State ---
     const [isLineModalOpen, setLineModalOpen] = useState(false);
