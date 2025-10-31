@@ -41,8 +41,9 @@ export class WaypointDrawer {
       .addTo(this.map);
     marker._waypointId = markerId;
     marker._dbId = dbId; // Store database ID on marker
-    // Attach click handler for editing (always)
-    marker.getElement().addEventListener('click', (e) => {
+    
+    // Attach click/touch handler for editing (always)
+    const handleMarkerClick = (e) => {
       e.stopPropagation();
       // Remove any existing custom popup
       const prevPopup = document.getElementById('waypoint-action-popup');
@@ -181,7 +182,12 @@ export class WaypointDrawer {
         }
       });
       observer.observe(document.body, { childList: true, subtree: true });
-    });
+    };
+    
+    // Add both click and touch event listeners for mobile support
+    marker.getElement().addEventListener('click', handleMarkerClick);
+    marker.getElement().addEventListener('touchend', handleMarkerClick);
+    
     // Attach dragend handler (if callback is set)
     marker._isDraggable = false;
     marker._waypointId = markerId;

@@ -6,6 +6,8 @@ import React from 'react';
 export const MobileSearchBar = ({ geocoderContainerRef, show }) => {
   if (!show) return null;
 
+  console.log('MobileSearchBar rendering, show:', show, 'ref:', geocoderContainerRef);
+
   return (
     <div style={{
       position: 'fixed',

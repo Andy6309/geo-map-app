@@ -1698,6 +1698,26 @@ const Map = () => {
                     onAreaButtonClick={handleAreaButtonClick}
                     onSearchToggle={() => setShowMobileSearch(!showMobileSearch)}
                     showSearch={showMobileSearch}
+                    onLayerToggle={() => {
+                      // Toggle between 2D topo and 3D satellite
+                      const newStyleId = currentStyleId === '2d-topo' ? '3d-satellite' : '2d-topo';
+                      const newStyle = styles.find(s => s.id === newStyleId);
+                      if (map && newStyle) {
+                        const center = map.getCenter();
+                        const zoom = map.getZoom();
+                        const bearing = map.getBearing();
+                        const pitch = map.getPitch();
+                        map.setStyle(newStyle.url);
+                        setCurrentStyleId(newStyleId);
+                        map.once('style.load', () => {
+                          map.setCenter(center);
+                          map.setZoom(zoom);
+                          map.setBearing(bearing);
+                          map.setPitch(pitch);
+                        });
+                      }
+                    }}
+                    currentStyleId={currentStyleId}
                   />
                 )}
 

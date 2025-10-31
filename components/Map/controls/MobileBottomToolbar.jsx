@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Locate, Compass, Plus, Minus, Search } from 'lucide-react';
+import { Locate, Compass, Plus, Minus, Search, Layers } from 'lucide-react';
 import { locateAndMarkUser } from '../utils/locateMeAction';
 
 /**
  * Mobile Bottom Toolbar - A unified bottom control panel for mobile devices
- * Includes: Drawing tools, Search toggle, Locate, Compass, Zoom
+ * Includes: Drawing tools, Search toggle, Layer toggle, Locate, Compass, Zoom
  */
 export const MobileBottomToolbar = ({ 
   map, 
@@ -15,7 +15,9 @@ export const MobileBottomToolbar = ({
   onLineButtonClick,
   onAreaButtonClick,
   onSearchToggle,
-  showSearch
+  showSearch,
+  onLayerToggle,
+  currentStyleId
 }) => {
   const [locating, setLocating] = useState(false);
 
@@ -146,6 +148,27 @@ export const MobileBottomToolbar = ({
           title="Draw Area"
         >
           ⬡
+        </button>
+
+        {/* Layer Toggle */}
+        <button
+          onClick={onLayerToggle}
+          style={{
+            width: '44px',
+            height: '44px',
+            borderRadius: '8px',
+            border: '1px solid #007bff',
+            backgroundColor: '#fff',
+            color: '#007bff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+          title={currentStyleId === '2d-topo' ? 'Switch to 3D Satellite' : 'Switch to 2D Topo'}
+        >
+          <Layers size={20} />
         </button>
       </div>
 
