@@ -19,6 +19,8 @@ import AreaMeasure from './controls/AreaMeasure';
 import LineModal from './controls/LineModal';
 import { waypointAPI, lineAPI, areaAPI } from '@/lib/api/geospatial';
 import { useAuth } from '@/contexts/AuthContext';
+import { MobileBottomToolbar } from './controls/MobileBottomToolbar';
+import { MobileSearchBar } from './controls/MobileSearchBar';
 
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -58,6 +60,7 @@ const Map = () => {
     const [currentStyleId, setCurrentStyleId] = useState('3d-satellite'); // Track current style ID, default to 3D Satellite
     const [dataLoaded, setDataLoaded] = useState(false);
     const [isLoadingData, setIsLoadingData] = useState(false);
+    const [showMobileSearch, setShowMobileSearch] = useState(false);
 
     // --- Line Modal State ---
     const [isLineModalOpen, setLineModalOpen] = useState(false);
@@ -1422,59 +1425,96 @@ const Map = () => {
                       padding: 0
                     }}
                 >
-                    <div
-                        ref={geocoderContainerRef}
-                        style={{
-                            position: 'absolute',
-                            zIndex: 10,
-                            width: isMobile ? '200px' : '300px',
-                            left: isMobile ? '8px' : '16px',
-                            top: isMobile ? '10px' : '20px',
-                            pointerEvents: 'auto',
-                        }}
-                    />
-                    {/* All overlays moved inside mapContainer for correct stacking */}
-                    
-                    <LocateMeButton map={map} />
-                    <CrosshairToggle mapContainerRef={mapContainer} />
-                    {draw && map && (
-  <>
-    <DrawingToolbar 
-      draw={draw} 
-      map={map} 
-      mapContainerRef={mapContainer} 
-      waypointDrawerRef={waypointDrawerRef}
-      onLineButtonClick={handleLineButtonClick} 
-      onAreaButtonClick={handleAreaButtonClick}
-    />
-    {isLineModalOpen && (
-      <LineMeasure
-        map={map}
-        draw={draw}
-        onUpdate={handleLineMeasureUpdate}
-        lineColor={lineModalColor}
-      />
-    )}
-    <LineModal
-      isOpen={isLineModalOpen}
-      onClose={handleLineModalClose}
-      onSave={handleLineModalSave}
-      totalDistance={lineModalTotal}
-      segments={lineModalSegments}
-      notes={lineModalNotes}
-      setNotes={setLineModalNotes}
-      initialColor={lineModalColor}
-      initialName={lineModalName}
-      editingLineId={editingLineId}
-      elevation={lineModalElevation}
-    />
-  </>
-)}
-                    <ZoomControl map={map} />
+                    {/* Desktop Search - Top Left */}
+                    {!isMobile && (
+                      <div
+                          ref={geocoderContainerRef}
+                          style={{
+                              position: 'absolute',
+                              zIndex: 10,
+                              width: '300px',
+                              left: '16px',
+                              top: '20px',
+                              pointerEvents: 'auto',
+                          }}
+                      />
+                    )}
 
-                    {/* Area Modal */}
-                    {isAreaModalOpen && renderAreaMeasure()}
-                    <AreaModal
+                    {/* Mobile Search - Collapsible */}
+                    {isMobile && (
+                      <MobileSearchBar 
+                        geocoderContainerRef={geocoderContainerRef}
+                        show={showMobileSearch}
+                      />
+                    )}
+                    
+                    {/* Desktop Controls */}
+                    {!isMobile && (
+                      <>
+                        <LocateMeButton map={map} />
+                        <CrosshairToggle mapContainerRef={mapContainer} />
+                        {draw && map && (
+                          <DrawingToolbar 
+                            draw={draw} 
+                            map={map} 
+                            mapContainerRef={mapContainer} 
+                            waypointDrawerRef={waypointDrawerRef}
+                            onLineButtonClick={handleLineButtonClick} 
+                            onAreaButtonClick={handleAreaButtonClick}
+                          />
+                        )}
+                        <ZoomControl map={map} />
+                        <CompassButton
+                            mapBearing={mapBearing}
+                            mapPitch={mapPitch}
+                            resetNorthAndTilt={resetNorthAndTilt}
+                        />
+                      </>
+                    )}
+
+                    {/* Mobile Bottom Toolbar */}
+                    {isMobile && (
+                      <MobileBottomToolbar
+                        map={map}
+                        mapBearing={mapBearing}
+                        mapPitch={mapPitch}
+                        resetNorthAndTilt={resetNorthAndTilt}
+                        waypointDrawerRef={waypointDrawerRef}
+                        onLineButtonClick={handleLineButtonClick}
+                        onAreaButtonClick={handleAreaButtonClick}
+                        onSearchToggle={() => setShowMobileSearch(!showMobileSearch)}
+                        showSearch={showMobileSearch}
+                      />
+                    )}
+
+                    {/* Modals - Shared between mobile and desktop */}
+                    {draw && map && (
+                      <>
+                        {isLineModalOpen && (
+                          <LineMeasure
+                            map={map}
+                            draw={draw}
+                            onUpdate={handleLineMeasureUpdate}
+                            lineColor={lineModalColor}
+                          />
+                        )}
+                        <LineModal
+                          isOpen={isLineModalOpen}
+                          onClose={handleLineModalClose}
+                          onSave={handleLineModalSave}
+                          totalDistance={lineModalTotal}
+                          segments={lineModalSegments}
+                          notes={lineModalNotes}
+                          setNotes={setLineModalNotes}
+                          initialColor={lineModalColor}
+                          initialName={lineModalName}
+                          editingLineId={editingLineId}
+                          elevation={lineModalElevation}
+                        />
+
+                        {/* Area Modal */}
+                        {isAreaModalOpen && renderAreaMeasure()}
+                        <AreaModal
                       isOpen={isAreaModalOpen}
                       onClose={handleAreaModalClose}
                       onSave={handleAreaModalSave}
@@ -1485,33 +1525,29 @@ const Map = () => {
                       initialName={areaModalName}
                       notes={areaModalNotes}
                       setNotes={setAreaModalNotes}
-                      editingAreaId={editingAreaId}
-                    />
+                          editingAreaId={editingAreaId}
+                        />
+                      </>
+                    )}
 
                     <div
                         id="info"
                         style={{
                             display: infoVisible ? 'block' : 'none',
                             position: 'absolute',
-                            bottom: '50px', // Lower so toggle bar is above
+                            bottom: isMobile ? '70px' : '50px', // Above mobile toolbar
                             left: '10px',
                             padding: '7px 16px',
                             background: 'rgba(0, 0, 0, 0.7)',
                             color: '#fff',
-                            fontSize: '14px',
+                            fontSize: isMobile ? '12px' : '14px',
                             borderRadius: '5px',
                             zIndex: 3,
                         }}
                     ></div>
 
-                    <CompassButton
-                        mapBearing={mapBearing}
-                        mapPitch={mapPitch}
-                        resetNorthAndTilt={resetNorthAndTilt}
-                    />
-
-                    
-                                        {/* Style toggle buttons restored */}
+                    {/* Style toggle buttons - Desktop only */}
+                    {!isMobile && (
                     <div
                         style={{
                             position: 'absolute',
@@ -1628,9 +1664,12 @@ const Map = () => {
                             </button>
                         ))}
                     </div>
+                    )}
                     {/* End overlays inside mapContainer */}
                 </div>
 
+                {/* Coordinate visibility toggle - Desktop only */}
+                {!isMobile && (
                 <div
                     style={{
                         position: 'absolute',
@@ -1693,7 +1732,8 @@ const Map = () => {
                       <span>Show Coordinates</span>
                     </label>
                 </div>
-            </div>
+                )}
+</div>
             
             {/* Loading Spinner */}
             {isLoadingData && (

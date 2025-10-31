@@ -239,6 +239,7 @@ export const WaypointButton = ({ map, mapContainerRef, waypointDrawerRef }) => {
       <button
         onClick={openModal}
         style={styles.button}
+        data-waypoint-button="true"
         onMouseEnter={e => {
           e.target.style.backgroundColor = '#f0f0f0';
           e.target.style.color = '#007bff';
