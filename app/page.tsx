@@ -1,19 +1,52 @@
 // app/page.tsx
 "use client";
+
 import dynamic from "next/dynamic";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState, useRef } from "react";
 import MapHeader from "@/components/Map/MapHeader";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
 // Dynamically import the JavaScript file
-const Map = dynamic(() => import("@/components/Map"), { ssr: false });
+const Map = dynamic(() => import("@/components/Map"), {
+    ssr: false,
+    loading: () => (
+        <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100vh',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+        }}>
+            <div style={{ textAlign: 'center' }}>
+                <div style={{
+                    width: '60px',
+                    height: '60px',
+                    border: '5px solid #007bff',
+                    borderTop: '5px solid #007bff',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite'
+                }} />
+                <div style={{
+                    color: 'white',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    fontFamily: 'Inter, Segoe UI, Roboto, Arial, sans-serif'
+                }}>
+                    Loading map data...
+                </div>
+            </div>
+        </div>
+    )
+});
 
 export default function Home() {
     const { user, loading } = useAuth();
     const router = useRouter();
     const isMobile = useIsMobile();
+    const [showSearch, setShowSearch] = useState(false);
+    const geocoderContainerRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         if (!loading && !user) {
@@ -42,12 +75,20 @@ export default function Home() {
 
     return (
         <main className="h-screen w-screen relative overflow-hidden">
-            <MapHeader />
+            <MapHeader 
+                geocoderContainerRef={geocoderContainerRef}
+                showSearch={showSearch}
+                onSearchToggle={() => setShowSearch(!showSearch)}
+            />
             <div 
                 className="absolute left-0 right-0 z-0"
                 style={{ top: headerHeight, bottom: bottomOffset }}
             >
-                <Map />
+                <Map 
+                    geocoderContainerRef={geocoderContainerRef}
+                    showSearch={showSearch}
+                    onSearchToggle={() => setShowSearch(!showSearch)}
+                />
             </div>
         </main>
     );

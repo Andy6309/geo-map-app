@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Locate, Compass, Plus, Minus, Search, Layers } from 'lucide-react';
+import { Locate, Compass, Plus, Minus, Layers } from 'lucide-react';
 import { locateAndMarkUser } from '../utils/locateMeAction';
 
 /**
  * Mobile Bottom Toolbar - A unified bottom control panel for mobile devices
- * Includes: Drawing tools, Search toggle, Layer toggle, Locate, Compass, Zoom
+ * Includes: Drawing tools, Layer toggle, Locate, Compass, Zoom
  */
 export const MobileBottomToolbar = ({ 
   map, 
@@ -14,8 +14,6 @@ export const MobileBottomToolbar = ({
   waypointDrawerRef,
   onLineButtonClick,
   onAreaButtonClick,
-  onSearchToggle,
-  showSearch,
   onLayerToggle,
   currentStyleId
 }) => {
@@ -59,27 +57,6 @@ export const MobileBottomToolbar = ({
     }}>
       {/* Left Section - Drawing Tools */}
       <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-        {/* Search Toggle */}
-        <button
-          onClick={onSearchToggle}
-          style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '6px',
-            border: '1px solid #007bff',
-            backgroundColor: showSearch ? '#007bff' : '#fff',
-            color: showSearch ? '#fff' : '#007bff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-          }}
-          title="Search"
-        >
-          <Search size={20} />
-        </button>
-
         {/* Waypoint Button */}
         <button
           onClick={() => {

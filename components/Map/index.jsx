@@ -25,7 +25,7 @@ import { MobileSearchBar } from './controls/MobileSearchBar';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
-const Map = () => {
+const Map = ({ onSearchToggle, showSearch, geocoderContainerRef: externalGeocoderRef }) => {
     const { user } = useAuth();
     
     // Mobile detection
@@ -50,7 +50,8 @@ const Map = () => {
     const [savedAreas, setSavedAreas] = useState([]); // Array of GeoJSON features
     const [infoVisible, setInfoVisible] = useState(true);
     const mapContainer = useRef(null);
-    const geocoderContainerRef = useRef(null);
+    const internalGeocoderRef = useRef(null);
+    const geocoderContainerRef = externalGeocoderRef || internalGeocoderRef; // Use external ref if provided
     const markerRef = useRef(null);
     const waypointDrawerRef = useRef(null);
     const [map, setMap] = useState(null);
@@ -1684,15 +1685,47 @@ const Map = () => {
                         ))}
                     </div>
                     )}
-                    {/* End overlays inside mapContainer */}
-                </div>
 
-                {/* Mobile Search - Collapsible (outside map container) */}
-                {isMobile && (
-                  <MobileSearchBar 
-                    geocoderContainerRef={geocoderContainerRef}
-                    show={showMobileSearch}
-                  />
+                {/* Modals - Shared between mobile and desktop */}
+                {draw && map && (
+                  <>
+                    {isLineModalOpen && (
+                      <LineMeasure
+                        map={map}
+                        draw={draw}
+                        onUpdate={handleLineMeasureUpdate}
+                        lineColor={lineModalColor}
+                      />
+                    )}
+                    <LineModal
+                      isOpen={isLineModalOpen}
+                      onClose={handleLineModalClose}
+                      onSave={handleLineModalSave}
+                      totalDistance={lineModalTotal}
+                      segments={lineModalSegments}
+                      notes={lineModalNotes}
+                      setNotes={setLineModalNotes}
+                      initialColor={lineModalColor}
+                      initialName={lineModalName}
+                      editingLineId={editingLineId}
+                      elevation={lineModalElevation}
+                    />
+                    
+                    {isAreaModalOpen && renderAreaMeasure()}
+                    <AreaModal
+                      isOpen={isAreaModalOpen}
+                      onClose={handleAreaModalClose}
+                      onSave={handleAreaModalSave}
+                      totalAreaAcres={areaModalTotal}
+                      segments={areaModalSegments}
+                      areaColor={areaModalColor}
+                      setAreaColor={setAreaModalColor}
+                      initialName={areaModalName}
+                      notes={areaModalNotes}
+                      setNotes={setAreaModalNotes}
+                      editingAreaId={editingAreaId}
+                    />
+                  </>
                 )}
 
                 {/* Mobile Bottom Toolbar - Outside map container */}
@@ -1705,8 +1738,6 @@ const Map = () => {
                     waypointDrawerRef={waypointDrawerRef}
                     onLineButtonClick={handleLineButtonClick}
                     onAreaButtonClick={handleAreaButtonClick}
-                    onSearchToggle={() => setShowMobileSearch(!showMobileSearch)}
-                    showSearch={showMobileSearch}
                     onLayerToggle={() => {
                       // Toggle between 2D topo and 3D satellite
                       const newStyleId = currentStyleId === '2d-topo' ? '3d-satellite' : '2d-topo';
@@ -1832,8 +1863,9 @@ const Map = () => {
                     </div>
                 </div>
             )}
+        </div>
             
-            <style jsx global>{`
+        <style jsx global>{`
                 @keyframes spin {
                     0% { transform: rotate(0deg); }
                     100% { transform: rotate(360deg); }
