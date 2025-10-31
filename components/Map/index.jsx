@@ -1515,7 +1515,7 @@ const Map = () => {
                     <div
                         style={{
                             position: 'absolute',
-                            bottom: isMobile ? '10px' : '25px',
+                            bottom: isMobile ? '60px' : '25px',
                             right: isMobile ? '5px' : '10px',
                             display: 'flex',
                             flexDirection: isMobile ? 'column' : 'row',
@@ -1523,6 +1523,8 @@ const Map = () => {
                             backgroundColor: 'rgba(255, 255, 255, 0.7)',
                             borderRadius: '5px',
                             padding: isMobile ? '3px' : '5px',
+                            maxHeight: isMobile ? '200px' : 'none',
+                            overflowY: isMobile ? 'auto' : 'visible',
                         }}
                     >
                         {styles.map((style, idx) => (

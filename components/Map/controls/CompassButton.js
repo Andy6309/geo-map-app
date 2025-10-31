@@ -1,9 +1,25 @@
 // File: components/Map/controls/CompassButton.js
 // Purpose: Custom compass button that rotates with map bearing and resets orientation on click
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 export const CompassButton = ({ mapBearing, mapPitch, resetNorthAndTilt }) => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = typeof window !== 'undefined' ? window.navigator.userAgent : '';
+      const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+      const isMobileDevice = mobileRegex.test(userAgent);
+      const isSmallScreen = typeof window !== 'undefined' ? window.innerWidth < 768 : false;
+      setIsMobile(isMobileDevice || isSmallScreen);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const isNorthFacing = mapBearing === 0;
   const isFlat = mapPitch === 0;
   const opacity = isNorthFacing && isFlat ? 0.6 : 1;
@@ -12,8 +28,8 @@ export const CompassButton = ({ mapBearing, mapPitch, resetNorthAndTilt }) => {
     <div
       style={{
         position: 'absolute',
-        bottom: '230px',
-        right: '10px',
+        bottom: isMobile ? '350px' : '230px',
+        right: isMobile ? '5px' : '10px',
         zIndex: 2,
         opacity: opacity,
         transition: 'opacity 0.3s ease',
@@ -25,9 +41,9 @@ export const CompassButton = ({ mapBearing, mapPitch, resetNorthAndTilt }) => {
           backgroundColor: 'black',
           border: '1px solid #ddd',
           borderRadius: '50%',
-          width: '60px',
-          height: '60px',
-          padding: '8px',
+          width: isMobile ? '45px' : '60px',
+          height: isMobile ? '45px' : '60px',
+          padding: isMobile ? '6px' : '8px',
           cursor: 'pointer',
           boxShadow: '0 0 0 3px rgba(0,0,0,0.1)',
           display: 'flex',

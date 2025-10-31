@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 
 /**
  * CrosshairToggle renders a toggle switch and a large crosshair at the center of the map when enabled.
@@ -9,7 +9,22 @@ import React, { useEffect } from 'react';
 const CROSSHAIR_ID = 'geo-map-crosshair-overlay';
 
 export const CrosshairToggle = ({ mapContainerRef }) => {
-  const [showCrosshair, setShowCrosshair] = React.useState(true);
+  const [showCrosshair, setShowCrosshair] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = typeof window !== 'undefined' ? window.navigator.userAgent : '';
+      const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+      const isMobileDevice = mobileRegex.test(userAgent);
+      const isSmallScreen = typeof window !== 'undefined' ? window.innerWidth < 768 : false;
+      setIsMobile(isMobileDevice || isSmallScreen);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     const container = mapContainerRef?.current;
@@ -53,9 +68,27 @@ export const CrosshairToggle = ({ mapContainerRef }) => {
   }, [showCrosshair, mapContainerRef]);
 
   return (
-    <div style={{ position: 'absolute', bottom: 155, left: 10, zIndex: 20, background: 'rgba(24,24,24,0.75)', borderRadius: 6, padding: '6px 12px', boxShadow: '0 2px 8px rgba(0,0,0,0.16)' }}>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 12, fontWeight: 500, fontSize: 15, cursor: 'pointer', userSelect: 'none', color: '#fff' }}>
-        <span style={{ position: 'relative', display: 'inline-block', width: 38, height: 22 }}>
+    <div style={{ 
+      position: 'absolute', 
+      bottom: isMobile ? 420 : 155, 
+      left: 10, 
+      zIndex: 20, 
+      background: 'rgba(24,24,24,0.75)', 
+      borderRadius: 6, 
+      padding: isMobile ? '4px 8px' : '6px 12px', 
+      boxShadow: '0 2px 8px rgba(0,0,0,0.16)' 
+    }}>
+      <label style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: isMobile ? 8 : 12, 
+        fontWeight: 500, 
+        fontSize: isMobile ? 13 : 15, 
+        cursor: 'pointer', 
+        userSelect: 'none', 
+        color: '#fff' 
+      }}>
+        <span style={{ position: 'relative', display: 'inline-block', width: isMobile ? 32 : 38, height: isMobile ? 18 : 22 }}>
           <input
             type="checkbox"
             checked={showCrosshair}
