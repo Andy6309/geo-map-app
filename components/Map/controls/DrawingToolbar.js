@@ -1,6 +1,6 @@
 // File: components/Map/controls/DrawingToolbar.js
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrash } from '@fortawesome/free-solid-svg-icons';
 
@@ -9,7 +9,22 @@ import LineButton from './Line';
 
 import AreaButton from './AreaButton';
 
-export const DrawingToolbar = ({ draw, map, mapContainerRef, onLineButtonClick, onAreaButtonClick }) => {
+export const DrawingToolbar = ({ draw, map, mapContainerRef, waypointDrawerRef, onLineButtonClick, onAreaButtonClick }) => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = typeof window !== 'undefined' ? window.navigator.userAgent : '';
+      const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+      const isMobileDevice = mobileRegex.test(userAgent);
+      const isSmallScreen = typeof window !== 'undefined' ? window.innerWidth < 768 : false;
+      setIsMobile(isMobileDevice || isSmallScreen);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   const activateTool = (tool) => {
     if (!map || !draw) return;
     if (tool === 'trash') {
@@ -22,15 +37,17 @@ export const DrawingToolbar = ({ draw, map, mapContainerRef, onLineButtonClick, 
   const buttonStyle = {
     backgroundColor: 'white',
     border: '1px solid #007bff',
-    padding: '10px 12px',
-    marginRight: '10px',
+    padding: isMobile ? '6px 8px' : '10px 12px',
+    marginRight: isMobile ? '0' : '10px',
+    marginBottom: isMobile ? '5px' : '0',
     cursor: 'pointer',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
     color: '#007bff',
     transition: 'all 0.3s ease-in-out',
-    fontSize: '24px',
+    fontSize: isMobile ? '18px' : '24px',
+    minWidth: isMobile ? '40px' : 'auto',
   };
 
   const dangerStyle = {
@@ -43,38 +60,40 @@ export const DrawingToolbar = ({ draw, map, mapContainerRef, onLineButtonClick, 
     <div
       style={{
         position: 'absolute',
-        top: '10px',
-        right: '10px',
+        top: isMobile ? '5px' : '10px',
+        right: isMobile ? '5px' : '10px',
         zIndex: 2,
         backgroundColor: 'rgba(255, 255, 255, 0.7)',
         borderRadius: '5px',
-        padding: '10px',
+        padding: isMobile ? '5px' : '10px',
         boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
         display: 'flex',
-        flexDirection: 'row',
+        flexDirection: isMobile ? 'column' : 'row',
         alignItems: 'center',
         width: 'auto',
-        maxHeight: '80vh',
+        maxHeight: isMobile ? 'auto' : '80vh',
         overflowY: 'auto',
       }}
     >
-      <div
-        style={{
-          transform: 'rotate(-90deg)',
-          marginRight: '10px',
-          fontWeight: 'bold',
-          color: 'black',
-          fontSize: '14px',
-          textAlign: 'center',
-          fontFamily: 'Roboto, Arial, sans-serif',
-        }}
-      >
-        Tools
-      </div>
+      {!isMobile && (
+        <div
+          style={{
+            transform: 'rotate(-90deg)',
+            marginRight: '10px',
+            fontWeight: 'bold',
+            color: 'black',
+            fontSize: '14px',
+            textAlign: 'center',
+            fontFamily: 'Roboto, Arial, sans-serif',
+          }}
+        >
+          Tools
+        </div>
+      )}
 
       {/* 🔹 Modular Buttons */}
 
-      <WaypointButton map={map} mapContainerRef={mapContainerRef} />
+      <WaypointButton map={map} mapContainerRef={mapContainerRef} waypointDrawerRef={waypointDrawerRef} />
       <LineButton onLineButtonClick={onLineButtonClick} />
       <AreaButton onAreaButtonClick={onAreaButtonClick} />
 

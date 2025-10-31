@@ -18,7 +18,7 @@ import { WaypointDrawer } from '../controls/WaypointAction';
 import { ConfirmModal } from './ConfirmModal';
 import { waypointAPI } from '@/lib/api/geospatial';
 
-export const WaypointButton = ({ map, mapContainerRef }) => {
+export const WaypointButton = ({ map, mapContainerRef, waypointDrawerRef }) => {
   const [waypointType, setWaypointType] = React.useState('deer');
   const [isDraggable, setIsDraggable] = React.useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,15 +29,7 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
   const [editFeatureId, setEditFeatureId] = useState(null);
   const [isAddingWaypoint, setIsAddingWaypoint] = useState(false);
   const [pendingWaypointDetails, setPendingWaypointDetails] = useState(null);
-  const waypointDrawer = useRef(null);
   const tempMarkerRef = useRef(null);
-
-  useEffect(() => {
-    if (map && (!waypointDrawer.current || waypointDrawer.current.map !== map)) {
-      console.log('WaypointDrawer: (Re)constructing with map instance', map);
-      waypointDrawer.current = new WaypointDrawer(map);
-    }
-  }, [map]);
 
   // Use callback to avoid stale closures
   const handleMarkerClick = React.useCallback((marker) => {
@@ -50,23 +42,23 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
   }, []);
 
   useEffect(() => {
-    if (!waypointDrawer.current) return;
-    waypointDrawer.current.onMarkerDrag = ({ id, lngLat }) => {
+    if (!waypointDrawerRef?.current) return;
+    waypointDrawerRef.current.onMarkerDrag = ({ id, lngLat }) => {
       // Optionally update state/UI here, or show a toast, etc.
       // For now, just log the drag event
       console.log('Waypoint dragged:', id, lngLat);
     };
     // Enable marker click to open modal for editing
-    waypointDrawer.current.onMarkerClick = handleMarkerClick;
+    waypointDrawerRef.current.onMarkerClick = handleMarkerClick;
     
     // Clean up callbacks on unmount
     return () => {
-      if (waypointDrawer.current) {
-        waypointDrawer.current.onMarkerClick = null;
-        waypointDrawer.current.onMarkerDrag = null;
+      if (waypointDrawerRef?.current) {
+        waypointDrawerRef.current.onMarkerClick = null;
+        waypointDrawerRef.current.onMarkerDrag = null;
       }
     };
-  }, [waypointDrawer, handleMarkerClick]);
+  }, [waypointDrawerRef, handleMarkerClick]);
 
   const openModal = () => {
     console.log('Waypoint button clicked, opening modal');
@@ -126,9 +118,9 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
     }
     const handleMapClick = (e) => {
       console.log('Map clicked, isAddingWaypointRef:', isAddingWaypointRef.current);
-      if (!isAddingWaypointRef.current || !waypointDrawer.current) return;
+      if (!isAddingWaypointRef.current || !waypointDrawerRef?.current) return;
       const lngLat = e.lngLat;
-      waypointDrawer.current.addWaypoint(lngLat, details.name, details.color, details.notes);
+      waypointDrawerRef.current.addWaypoint(lngLat, details.name, details.color, details.notes);
       alert(`Waypoint placed at:\nLongitude: ${lngLat.lng.toFixed(6)}\nLatitude: ${lngLat.lat.toFixed(6)}`);
       setIsAddingWaypoint(false);
       setPendingWaypointDetails(null);
@@ -142,11 +134,13 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
 
   const stopAddingWaypoint = () => {
     setIsAddingWaypoint(false);
-    waypointDrawer.current.stopDrawingWaypoint();
+    if (waypointDrawerRef?.current?.stopDrawingWaypoint) {
+      waypointDrawerRef.current.stopDrawingWaypoint();
+    }
   };
 
   const handleSaveEdit = async () => {
-    if (waypointDrawer.current && editFeatureId !== null) {
+    if (waypointDrawerRef?.current && editFeatureId !== null) {
       try {
         // Update in database
         await waypointAPI.update({
@@ -159,7 +153,7 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
         console.log('✅ Waypoint updated in database:', editFeatureId);
         
         // Update the marker visually
-        waypointDrawer.current.updateWaypoint(editFeatureId, {
+        waypointDrawerRef.current.updateWaypoint(editFeatureId, {
           name: waypointName,
           color: waypointColor,
           notes: waypointNotes,
@@ -174,8 +168,8 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
   };
 
   const handleDelete = () => {
-    if (waypointDrawer.current && editFeatureId !== null) {
-      waypointDrawer.current.removeWaypoint(editFeatureId);
+    if (waypointDrawerRef?.current && editFeatureId !== null) {
+      waypointDrawerRef.current.removeWaypoint(editFeatureId);
       closeModal();
     }
   };
@@ -222,8 +216,8 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
     }
     
     // Update existing marker color in real-time (when editing)
-    if (editFeatureId && waypointDrawer.current && isModalOpen) {
-      const marker = waypointDrawer.current.markers.find(m => m._dbId === editFeatureId || m._waypointId === editFeatureId);
+    if (editFeatureId && waypointDrawerRef?.current && isModalOpen) {
+      const marker = waypointDrawerRef.current.markers.find(m => m._dbId === editFeatureId || m._waypointId === editFeatureId);
       if (marker) {
         const markerEl = marker.getElement();
         markerEl.innerHTML = `
@@ -406,7 +400,7 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
                 handleSaveEdit();
               } else {
                 const nameToUse = waypointName && waypointName.trim() ? waypointName : defaultName;
-                if (map && waypointDrawer.current) {
+                if (map && waypointDrawerRef?.current) {
                   let lngLat = map.getCenter();
                   if (tempMarkerRef.current) {
                     lngLat = tempMarkerRef.current.getLngLat();
@@ -428,7 +422,7 @@ export const WaypointButton = ({ map, mapContainerRef }) => {
                     console.log('✅ Waypoint saved to database:', savedWaypoint.id);
                     
                     // Then add to map with database ID
-                    waypointDrawer.current.addWaypoint(lngLat, nameToUse, waypointColor, waypointNotes, savedWaypoint.id);
+                    waypointDrawerRef.current.addWaypoint(lngLat, nameToUse, waypointColor, waypointNotes, savedWaypoint.id);
                     
                     setWaypointName('');
                     setWaypointNotes('');

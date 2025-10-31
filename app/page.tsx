@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import MapHeader from "@/components/Map/MapHeader";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 // Dynamically import the JavaScript file
 const Map = dynamic(() => import("@/components/Map"), { ssr: false });
@@ -12,6 +13,7 @@ const Map = dynamic(() => import("@/components/Map"), { ssr: false });
 export default function Home() {
     const { user, loading } = useAuth();
     const router = useRouter();
+    const isMobile = useIsMobile();
 
     useEffect(() => {
         if (!loading && !user) {
@@ -34,10 +36,16 @@ export default function Home() {
         return null;
     }
 
+    // Adjust header height based on device
+    const headerHeight = isMobile ? '40px' : '57px';
+
     return (
         <main className="h-screen w-screen relative overflow-hidden">
             <MapHeader />
-            <div className="absolute top-[57px] left-0 right-0 bottom-0 z-0">
+            <div 
+                className="absolute left-0 right-0 bottom-0 z-0"
+                style={{ top: headerHeight }}
+            >
                 <Map />
             </div>
         </main>
