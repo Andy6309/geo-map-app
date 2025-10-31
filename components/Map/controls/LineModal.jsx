@@ -296,7 +296,7 @@ export default function LineModal({
       </div>
       <div style={{height:18}} />
       <div style={{ display:'flex', flexDirection:'column', gap:'8px', marginTop:'10px' }}>
-        {!editingLineId && (
+        {!editingLineId && !isMobile && (
           <div style={{ 
             backgroundColor: '#f8f9fa', 
             padding: '12px', 
@@ -309,6 +309,28 @@ export default function LineModal({
           }}>
             Press enter to place line
           </div>
+        )}
+        {!editingLineId && isMobile && (
+          <button
+            style={{
+              background:'#28a745', 
+              color:'white', 
+              border:'none', 
+              fontWeight:600, 
+              marginTop:0, 
+              fontFamily:'inherit', 
+              borderRadius:'4px', 
+              padding:'13px', 
+              width:'100%',
+              cursor: 'pointer',
+              fontSize: '1rem'
+            }}
+            onClick={() => {
+              // Simulate Enter key press to place point
+              const event = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13 });
+              document.dispatchEvent(event);
+            }}
+          >+ Add Point</button>
         )}
         {editingLineId && (
           <button

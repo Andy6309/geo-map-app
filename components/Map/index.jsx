@@ -587,7 +587,19 @@ const Map = () => {
                         'line-color': ['get', 'color'], // Use color from feature properties
                         'line-width': 4,
                         'line-opacity': 1
+                    },
+                    layout: {
+                        'line-cap': 'round',
+                        'line-join': 'round'
                     }
+                });
+                
+                // Make lines clickable with cursor change
+                initialMap.on('mouseenter', 'static-lines-layer', () => {
+                    initialMap.getCanvas().style.cursor = 'pointer';
+                });
+                initialMap.on('mouseleave', 'static-lines-layer', () => {
+                    initialMap.getCanvas().style.cursor = '';
                 });
             }
             // Static Areas
@@ -615,6 +627,14 @@ const Map = () => {
                         'line-width': 3,
                         'line-opacity': 1
                     }
+                });
+                
+                // Make areas clickable with cursor change
+                initialMap.on('mouseenter', 'static-areas-layer', () => {
+                    initialMap.getCanvas().style.cursor = 'pointer';
+                });
+                initialMap.on('mouseleave', 'static-areas-layer', () => {
+                    initialMap.getCanvas().style.cursor = '';
                 });
                 
                 // Add labels for area acres
@@ -1168,12 +1188,14 @@ const Map = () => {
             }
         };
 
-        // Add click handler for lines and areas
+        // Add click handler for lines and areas (both click and touch)
         map.on('click', handleClick);
+        map.on('touchend', handleClick); // Add touch support for mobile
 
         // Clean up
         return () => {
             map.off('click', handleClick);
+            map.off('touchend', handleClick);
         };
     }, [map, draw, savedLines, savedAreas, handleEditFeature, handleDeleteFeature]);
 
