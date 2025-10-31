@@ -4,12 +4,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { Search } from 'lucide-react';
+import { useEffect } from 'react';
 
 interface MapHeaderProps {
   geocoderContainerRef?: React.RefObject<HTMLDivElement | null>;
+  showSearch?: boolean;
+  onSearchToggle?: () => void;
 }
 
-export default function MapHeader({ geocoderContainerRef }: MapHeaderProps) {
+export default function MapHeader({ geocoderContainerRef, showSearch, onSearchToggle }: MapHeaderProps) {
   const { user, signOut } = useAuth();
   const router = useRouter();
   const isMobile = useIsMobile();
@@ -18,6 +21,18 @@ export default function MapHeader({ geocoderContainerRef }: MapHeaderProps) {
     await signOut();
     router.push('/login');
   };
+
+  // Focus the geocoder input when search opens
+  useEffect(() => {
+    if (showSearch && geocoderContainerRef?.current) {
+      setTimeout(() => {
+        const input = geocoderContainerRef.current?.querySelector('input');
+        if (input) {
+          input.focus();
+        }
+      }, 100);
+    }
+  }, [showSearch, geocoderContainerRef]);
 
   return (
     <>
@@ -39,6 +54,21 @@ export default function MapHeader({ geocoderContainerRef }: MapHeaderProps) {
           </div>
         
           <div className={`flex items-center ${isMobile ? 'space-x-1' : 'space-x-3'}`}>
+          {/* Search Icon - Mobile Only */}
+          {isMobile && onSearchToggle && (
+            <button
+              onClick={onSearchToggle}
+              className={`p-1.5 rounded-md transition-colors ${
+                showSearch 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              title="Search"
+            >
+              <Search size={16} />
+            </button>
+          )}
+          
           <a 
             href="https://www.mapbox.com/about/maps/" 
             target="_blank" 
@@ -74,21 +104,25 @@ export default function MapHeader({ geocoderContainerRef }: MapHeaderProps) {
         </div>
       </div>
       
-      {/* Search Bar - Always visible on Mobile */}
-      {isMobile && geocoderContainerRef && (
+      {/* Search Dropdown - Mobile Only */}
+      {isMobile && showSearch && geocoderContainerRef && (
         <div 
           className="absolute left-0 right-0 bg-white shadow-lg border-t border-gray-200"
           style={{ 
             top: '100%',
-            zIndex: 999
+            zIndex: 9999,
+            pointerEvents: 'auto'
           }}
         >
-          <div className="p-2">
+          <div className="p-3" style={{ pointerEvents: 'auto' }}>
             <div 
               ref={geocoderContainerRef}
               style={{ 
                 width: '100%',
-                minHeight: '40px'
+                minHeight: '40px',
+                pointerEvents: 'auto',
+                position: 'relative',
+                zIndex: 10000
               }}
             />
           </div>

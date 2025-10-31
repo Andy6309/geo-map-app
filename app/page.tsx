@@ -45,6 +45,7 @@ export default function Home() {
     const { user, loading } = useAuth();
     const router = useRouter();
     const isMobile = useIsMobile();
+    const [showSearch, setShowSearch] = useState(false);
     const geocoderContainerRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
@@ -69,14 +70,15 @@ export default function Home() {
     }
 
     // Adjust header height and bottom offset based on device
-    // Mobile header is taller to include search bar
-    const headerHeight = isMobile ? '88px' : '57px'; // 36px header + 52px search bar on mobile
+    const headerHeight = isMobile ? '36px' : '57px';
     const bottomOffset = isMobile ? '60px' : '0px'; // Account for mobile toolbar
 
     return (
         <main className="h-screen w-screen relative overflow-hidden">
             <MapHeader 
                 geocoderContainerRef={geocoderContainerRef}
+                showSearch={showSearch}
+                onSearchToggle={() => setShowSearch(!showSearch)}
             />
             <div 
                 className="absolute left-0 right-0 z-0"
@@ -84,8 +86,8 @@ export default function Home() {
             >
                 <Map 
                     geocoderContainerRef={geocoderContainerRef}
-                    onSearchToggle={() => {}}
-                    showSearch={true}
+                    onSearchToggle={() => setShowSearch(!showSearch)}
+                    showSearch={showSearch}
                 />
             </div>
         </main>
