@@ -21,6 +21,8 @@ import { waypointAPI, lineAPI, areaAPI, geospatialAPI } from '@/lib/api/geospati
 import { useAuth } from '@/contexts/AuthContext';
 import { MobileBottomToolbar } from './controls/MobileBottomToolbar';
 import { MobileSearchBar } from './controls/MobileSearchBar';
+import { WeatherModal } from './controls/WeatherModal';
+import { WeatherButton } from './controls/WeatherButton';
 
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -81,6 +83,9 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
     const [lineModalName, setLineModalName] = useState("");
     const [lineModalNotes, setLineModalNotes] = useState("");
     const [lineModalElevation, setLineModalElevation] = useState({ gain: 0, loss: 0, min: 0, max: 0 });
+
+    // --- Weather Modal State ---
+    const [isWeatherModalOpen, setWeatherModalOpen] = useState(false);
 
     // Handler for Area button in toolbar
     const handleAreaButtonClick = () => {
@@ -1523,8 +1528,20 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                             mapPitch={mapPitch}
                             resetNorthAndTilt={resetNorthAndTilt}
                         />
+                        <WeatherButton 
+                          onClick={() => setWeatherModalOpen(true)}
+                          isMobile={isMobile}
+                        />
                       </>
                     )}
+
+                    {/* Weather Modal - Always available */}
+                    <WeatherModal
+                      isOpen={isWeatherModalOpen}
+                      onClose={() => setWeatherModalOpen(false)}
+                      map={map}
+                      isMobile={isMobile}
+                    />
 
                     {/* Modals - Shared between mobile and desktop */}
                     {draw && map && (
@@ -1757,6 +1774,7 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                     waypointDrawerRef={waypointDrawerRef}
                     onLineButtonClick={handleLineButtonClick}
                     onAreaButtonClick={handleAreaButtonClick}
+                    onWeatherClick={() => setWeatherModalOpen(true)}
                     onLayerToggle={() => {
                       // Toggle between 2D topo and 3D satellite
                       const newStyleId = currentStyleId === '2d-topo' ? '3d-satellite' : '2d-topo';

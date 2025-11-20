@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Locate, Compass, Plus, Minus, Layers } from 'lucide-react';
+import { Locate, Compass, Plus, Minus, Layers, CloudSun } from 'lucide-react';
 import { locateAndMarkUser } from '../utils/locateMeAction';
 
 /**
@@ -15,6 +15,7 @@ export const MobileBottomToolbar = ({
   onLineButtonClick,
   onAreaButtonClick,
   onLayerToggle,
+  onWeatherClick,
   currentStyleId
 }) => {
   const [locating, setLocating] = useState(false);
@@ -151,6 +152,26 @@ export const MobileBottomToolbar = ({
           <span style={{ fontSize: '8px', fontWeight: 'bold', marginTop: '2px' }}>
             {currentStyleId === '3d-satellite' ? '3D' : '2D'}
           </span>
+        </button>
+
+        {/* Weather Button */}
+        <button
+          onClick={onWeatherClick}
+          style={{
+            width: '38px',
+            height: '38px',
+            borderRadius: '6px',
+            border: '1px solid #4CAF50',
+            backgroundColor: '#fff',
+            color: '#4CAF50',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+          title="View Weather"
+        >
+          <CloudSun size={20} />
         </button>
       </div>
 
