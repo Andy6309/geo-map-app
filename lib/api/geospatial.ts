@@ -143,3 +143,22 @@ export const areaAPI = {
     if (!res.ok) throw new Error('Failed to delete area');
   },
 };
+
+// Batch API - Fetch all geospatial data in a single request
+export interface BatchGeospatialData {
+  waypoints: Waypoint[];
+  lines: Line[];
+  areas: Area[];
+}
+
+export const geospatialAPI = {
+  /**
+   * Fetch all geospatial data (waypoints, lines, areas) in a single optimized request.
+   * This is significantly faster than calling getAll() on each API separately.
+   */
+  async getAllData(): Promise<BatchGeospatialData> {
+    const res = await fetch('/api/geospatial/batch');
+    if (!res.ok) throw new Error('Failed to fetch geospatial data');
+    return res.json();
+  },
+};

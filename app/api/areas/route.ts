@@ -13,7 +13,7 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabase
       .from('areas')
-      .select('*')
+      .select('id, name, notes, color, coordinates, total_area, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 

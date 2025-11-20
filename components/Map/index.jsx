@@ -17,7 +17,7 @@ import { length as turfLength, point, lineString, area as turfArea } from '@turf
 import  LineMeasure from './controls/LineMeasure';
 import AreaMeasure from './controls/AreaMeasure';
 import LineModal from './controls/LineModal';
-import { waypointAPI, lineAPI, areaAPI } from '@/lib/api/geospatial';
+import { waypointAPI, lineAPI, areaAPI, geospatialAPI } from '@/lib/api/geospatial';
 import { useAuth } from '@/contexts/AuthContext';
 import { MobileBottomToolbar } from './controls/MobileBottomToolbar';
 import { MobileSearchBar } from './controls/MobileSearchBar';
@@ -872,36 +872,34 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
         };
     }, []);
 
-    // Load saved data from database when map and user are ready
+    // State to store loaded data before waypoint drawer is ready
+    const [pendingWaypoints, setPendingWaypoints] = useState(null);
+
+    // Load saved data from database as soon as map and user are ready
+    // Don't wait for waypointDrawerRef - we'll render waypoints separately when ready
     useEffect(() => {
-        if (!map || !user || dataLoaded || !waypointDrawerRef.current) return;
+        if (!map || !user || dataLoaded) return;
 
         const loadSavedData = async () => {
             try {
                 setIsLoadingData(true);
+                const startTime = performance.now();
                 console.log('📥 Loading saved data from database...');
                 
-                // Load waypoints
-                const waypoints = await waypointAPI.getAll();
-                console.log(`✅ Loaded ${waypoints.length} waypoints`, waypoints);
-                waypoints.forEach(wp => {
-                    if (waypointDrawerRef.current && wp.longitude && wp.latitude) {
-                        // addWaypoint expects: (lngLat, name, color, notes, dbId)
-                        const lngLat = { lng: wp.longitude, lat: wp.latitude };
-                        waypointDrawerRef.current.addWaypoint(
-                            lngLat,
-                            wp.name,
-                            wp.color || 'red',
-                            wp.notes || '',
-                            wp.id // Pass database ID
-                        );
-                    }
+                // Use batch endpoint for faster loading (single request instead of 3)
+                const { waypoints, lines, areas } = await geospatialAPI.getAllData();
+                
+                const loadTime = performance.now() - startTime;
+                console.log(`✅ Loaded all data in ${loadTime.toFixed(0)}ms:`, {
+                    waypoints: waypoints.length,
+                    lines: lines.length,
+                    areas: areas.length
                 });
+                
+                // Store waypoints for later rendering when drawer is ready
+                setPendingWaypoints(waypoints);
 
-                // Load lines
-                const lines = await lineAPI.getAll();
-                console.log(`✅ Loaded ${lines.length} lines`);
-                // Lines store coordinates as JSON array, not WKT
+                // Load lines immediately - convert to GeoJSON features
                 const lineFeatures = lines.map(line => ({
                     id: line.id,
                     type: 'Feature',
@@ -919,10 +917,7 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                 }));
                 setSavedLines(lineFeatures);
 
-                // Load areas
-                const areas = await areaAPI.getAll();
-                console.log(`✅ Loaded ${areas.length} areas`);
-                // Areas store coordinates as JSON array, not WKT
+                // Load areas immediately - convert to GeoJSON features
                 const areaFeatures = areas.map(area => ({
                     id: area.id,
                     type: 'Feature',
@@ -941,7 +936,7 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                 setSavedAreas(areaFeatures);
 
                 setDataLoaded(true);
-                console.log('✅ All data loaded successfully!');
+                console.log('✅ All data loaded and rendered successfully!');
             } catch (error) {
                 console.error('❌ Error loading saved data:', error);
             } finally {
@@ -951,6 +946,30 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
 
         loadSavedData();
     }, [map, user, dataLoaded]);
+
+    // Render waypoints when drawer is ready and we have pending waypoints
+    useEffect(() => {
+        if (!waypointDrawerRef.current || !pendingWaypoints) return;
+
+        console.log(`📍 Rendering ${pendingWaypoints.length} waypoints...`);
+        pendingWaypoints.forEach(wp => {
+            if (wp.longitude && wp.latitude) {
+                // addWaypoint expects: (lngLat, name, color, notes, dbId)
+                const lngLat = { lng: wp.longitude, lat: wp.latitude };
+                waypointDrawerRef.current.addWaypoint(
+                    lngLat,
+                    wp.name,
+                    wp.color || 'red',
+                    wp.notes || '',
+                    wp.id // Pass database ID
+                );
+            }
+        });
+        
+        // Clear pending waypoints after rendering
+        setPendingWaypoints(null);
+        console.log('✅ Waypoints rendered!');
+    }, [waypointDrawerRef.current, pendingWaypoints]);
 
     // Memoized handlers to avoid stale closures
     const handleEditFeature = useCallback((featureId, isArea, feature) => {
