@@ -118,6 +118,9 @@ export interface AstronomicalData {
   moonPhaseCode?: string;
   moonIllumination: number; // 0-100
   moonFraction?: number; // 0-1
+  moonAgeDays?: number;
+  moonDayNumber?: number;
+  moonDayName?: string;
   moonrise?: Date;
   moonset?: Date;
   moonOverhead?: Date;
@@ -130,6 +133,39 @@ const WEATHER_SETTINGS = {
   userAgent: 'GeoMapApp/1.0 (geospatial mapping application)',
   cacheDurationMinutes: 60,
 };
+
+const MOON_DAY_NAMES = [
+  'New Moon',
+  'Waxing Crescent 1',
+  'Waxing Crescent 2',
+  'Waxing Crescent 3',
+  'Waxing Crescent 4',
+  'Waxing Crescent 5',
+  'Waxing Crescent 6',
+  'First Quarter',
+  'Waxing Gibbous 1',
+  'Waxing Gibbous 2',
+  'Waxing Gibbous 3',
+  'Waxing Gibbous 4',
+  'Waxing Gibbous 5',
+  'Waxing Gibbous 6',
+  'Full Moon',
+  'Waning Gibbous 1',
+  'Waning Gibbous 2',
+  'Waning Gibbous 3',
+  'Waning Gibbous 4',
+  'Waning Gibbous 5',
+  'Waning Gibbous 6',
+  'Last (Third) Quarter',
+  'Waning Crescent 1',
+  'Waning Crescent 2',
+  'Waning Crescent 3',
+  'Waning Crescent 4',
+  'Waning Crescent 5',
+  'Waning Crescent 6',
+  'Waning Crescent 7',
+  'Waning Crescent 8'
+];
 
 // Simple in-memory cache
 const weatherCache = new Map<string, WeatherSnapshot>();
@@ -621,6 +657,9 @@ const dayMs = 1000 * 60 * 60 * 24;
 const J1970 = 2440588;
 const J2000 = 2451545;
 const e = Math.PI / 180 * 23.4397; // obliquity of the Earth
+const MINUTES_PER_DAY = 24 * 60;
+const MOON_SAMPLE_STEP_MINUTES = 5;
+const MOON_ALTITUDE_CORRECTION = 0.133 * Math.PI / 180; // refraction + moon radius
 
 function toJulian(date: Date): number {
   return date.valueOf() / dayMs - 0.5 + J1970;
@@ -632,6 +671,11 @@ function fromJulian(j: number): Date {
 
 function toDays(date: Date): number {
   return toJulian(date) - J2000;
+}
+
+function getStartOfDayInTimezone(date: Date, timezoneOffsetMinutes: number): Date {
+  const utcMidnight = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  return new Date(utcMidnight + timezoneOffsetMinutes * 60 * 1000);
 }
 
 function rightAscension(l: number, b: number): number {
@@ -689,7 +733,7 @@ function getSetJ(h: number, lw: number, phi: number, dec: number, n: number, M: 
 /**
  * Calculate moon phase, illumination, and fraction of lunar cycle
  */
-export function calculateMoonPhase(date: Date = new Date()): { phase: string; phaseCode: string; illumination: number; age: number; fraction: number } {
+export function calculateMoonPhase(date: Date = new Date()): { phase: string; phaseCode: string; illumination: number; age: number; fraction: number; dayNumber: number; dayName: string } {
   const synodicMonth = 29.530588853; // average length of lunar cycle in days
   const knownNewMoon = Date.UTC(2000, 0, 6, 18, 14); // reference new moon (Jan 6 2000)
   const currentUtc = Date.UTC(
@@ -707,6 +751,16 @@ export function calculateMoonPhase(date: Date = new Date()): { phase: string; ph
   
   const age = fraction * synodicMonth;
   const illumination = ((1 - Math.cos(2 * Math.PI * fraction)) / 2) * 100;
+
+  let dayNumber = Math.floor(age);
+  const cycleLength = MOON_DAY_NAMES.length;
+  if (dayNumber >= cycleLength) {
+    dayNumber = dayNumber % cycleLength;
+  }
+  if (dayNumber < 0) {
+    dayNumber = (dayNumber % cycleLength + cycleLength) % cycleLength;
+  }
+  const dayName = MOON_DAY_NAMES[dayNumber] ?? 'New Moon';
   
   const phaseBreaks = [
     { threshold: 0.0625, name: 'New Moon', code: 'NM' },
@@ -732,56 +786,113 @@ export function calculateMoonPhase(date: Date = new Date()): { phase: string; ph
     phaseCode = 'NM';
   }
   
-  return { phase: phaseName, phaseCode, illumination, age, fraction };
+  return { phase: phaseName, phaseCode, illumination, age, fraction, dayNumber, dayName };
 }
 
 /**
- * Calculate moonrise and moonset times
- * More accurate implementation with proper horizon crossing detection
+ * Calculate moonrise and moonset times via high-resolution sampling
  */
-export function calculateMoonriseMoonset(latitude: number, longitude: number, date: Date = new Date()): { moonrise?: Date; moonset?: Date } {
-  const lw = -longitude * Math.PI / 180;
-  const phi = latitude * Math.PI / 180;
-  
-  // Start from midnight of the given date in local time
-  const startDate = new Date(date);
-  startDate.setHours(0, 0, 0, 0);
-  const d = toDays(startDate);
-  
-  const h0 = -0.833 * Math.PI / 180; // Standard horizon (same as sun)
-  
-  let rise: number | undefined;
-  let set: number | undefined;
-  let ye = 0;
-  
-  // Check every 2 hours for moonrise/moonset events
-  for (let i = 1; i <= 24; i += 2) {
-    const h1 = getMoonPosition(d + i / 24, latitude, longitude).altitude;
-    const h2 = getMoonPosition(d + (i + 1) / 24, latitude, longitude).altitude;
-    
-    const a = (h1 + h2) / 2;
-    const b = (h2 - h1) / 2;
-    const xe = -a / (2 * b);
-    ye = a + b * xe;
-    
-    if (Math.abs(xe) <= 1) {
-      const x = d + (i + xe) / 24;
-      
-      // Moonrise: altitude goes from below to above horizon
-      if (h1 < h0 && h2 >= h0) {
-        rise = x;
-      }
-      
-      // Moonset: altitude goes from above to below horizon
-      if (h1 >= h0 && h2 < h0) {
-        set = x;
-      }
+export function calculateMoonriseMoonset(
+  latitude: number,
+  longitude: number,
+  date: Date = new Date(),
+  timezoneOffsetMinutes: number = date.getTimezoneOffset()
+): { moonrise?: Date; moonset?: Date } {
+  const startDate = getStartOfDayInTimezone(date, timezoneOffsetMinutes);
+  const baseDay = toDays(startDate);
+
+  const sampleAltitude = (minutes: number) => {
+    const fractionOfDay = minutes / MINUTES_PER_DAY;
+    return getMoonPosition(baseDay + fractionOfDay, latitude, longitude).altitude - MOON_ALTITUDE_CORRECTION;
+  };
+
+  let previousAltitude = sampleAltitude(0);
+  let previousMinute = 0;
+  let moonriseMinutes: number | undefined;
+  let moonsetMinutes: number | undefined;
+
+  for (let minute = MOON_SAMPLE_STEP_MINUTES; minute <= MINUTES_PER_DAY; minute += MOON_SAMPLE_STEP_MINUTES) {
+    const altitude = sampleAltitude(minute);
+
+    if (moonriseMinutes === undefined && previousAltitude < 0 && altitude >= 0) {
+      const ratio = previousAltitude / (previousAltitude - altitude);
+      moonriseMinutes = previousMinute + ratio * MOON_SAMPLE_STEP_MINUTES;
+    }
+
+    if (moonsetMinutes === undefined && previousAltitude > 0 && altitude <= 0) {
+      const ratio = previousAltitude / (previousAltitude - altitude);
+      moonsetMinutes = previousMinute + ratio * MOON_SAMPLE_STEP_MINUTES;
+    }
+
+    if (moonriseMinutes !== undefined && moonsetMinutes !== undefined) {
+      break;
+    }
+
+    previousAltitude = altitude;
+    previousMinute = minute;
+  }
+
+  return {
+    moonrise: moonriseMinutes !== undefined ? new Date(startDate.getTime() + moonriseMinutes * 60 * 1000) : undefined,
+    moonset: moonsetMinutes !== undefined ? new Date(startDate.getTime() + moonsetMinutes * 60 * 1000) : undefined,
+  };
+}
+
+function calculateMoonTransits(
+  latitude: number,
+  longitude: number,
+  date: Date = new Date(),
+  timezoneOffsetMinutes: number = date.getTimezoneOffset()
+): { moonOverhead?: Date; moonUnderfoot?: Date } {
+  const startDate = getStartOfDayInTimezone(date, timezoneOffsetMinutes);
+  const baseDay = toDays(startDate);
+
+  const sampleAltitude = (minutes: number) => {
+    const fraction = minutes / MINUTES_PER_DAY;
+    return getMoonPosition(baseDay + fraction, latitude, longitude).altitude;
+  };
+
+  let maxAltitude = -Infinity;
+  let minAltitude = Infinity;
+  let maxMinute = 0;
+  let minMinute = 0;
+
+  for (let minute = 0; minute <= MINUTES_PER_DAY; minute += MOON_SAMPLE_STEP_MINUTES) {
+    const altitude = sampleAltitude(minute);
+    if (altitude > maxAltitude) {
+      maxAltitude = altitude;
+      maxMinute = minute;
+    }
+    if (altitude < minAltitude) {
+      minAltitude = altitude;
+      minMinute = minute;
     }
   }
-  
+
+  // Refine extrema within +- step window at 1-minute resolution
+  const refineExtremum = (initialMinute: number, comparator: 'max' | 'min') => {
+    const start = Math.max(0, initialMinute - MOON_SAMPLE_STEP_MINUTES);
+    const end = Math.min(MINUTES_PER_DAY, initialMinute + MOON_SAMPLE_STEP_MINUTES);
+    let bestMinute = initialMinute;
+    let bestAltitude = comparator === 'max' ? -Infinity : Infinity;
+
+    for (let minute = start; minute <= end; minute += 1) {
+      const altitude = sampleAltitude(minute);
+      if ((comparator === 'max' && altitude > bestAltitude) || (comparator === 'min' && altitude < bestAltitude)) {
+        bestAltitude = altitude;
+        bestMinute = minute;
+      }
+    }
+
+    return bestMinute;
+  };
+
+  const refinedMaxMinute = refineExtremum(maxMinute, 'max');
+  const refinedMinMinute = refineExtremum(minMinute, 'min');
+
   return {
-    moonrise: rise !== undefined ? fromJulian(rise) : undefined,
-    moonset: set !== undefined ? fromJulian(set) : undefined
+    moonOverhead: new Date(startDate.getTime() + refinedMaxMinute * 60 * 1000),
+    moonUnderfoot: new Date(startDate.getTime() + refinedMinMinute * 60 * 1000),
   };
 }
 
@@ -828,44 +939,18 @@ function getMoonCoords(d: number): { ra: number; dec: number; dist: number } {
 /**
  * Get astronomical data for a location
  */
-export function getAstronomicalData(latitude: number, longitude: number, date: Date = new Date()): AstronomicalData {
+export function getAstronomicalData(
+  latitude: number,
+  longitude: number,
+  date: Date = new Date(),
+  timezoneOffsetMinutes: number = date.getTimezoneOffset()
+): AstronomicalData {
   const sunTimes = calculateSunriseSunset(latitude, longitude, date);
   const moonData = calculateMoonPhase(date);
-  const moonTimes = calculateMoonriseMoonset(latitude, longitude, date);
+  const moonTimes = calculateMoonriseMoonset(latitude, longitude, date, timezoneOffsetMinutes);
+  const transits = calculateMoonTransits(latitude, longitude, date, timezoneOffsetMinutes);
   
   const dayLength = (sunTimes.sunset.getTime() - sunTimes.sunrise.getTime()) / (1000 * 60); // minutes
-  
-  // Calculate moon overhead (transit/culmination) and underfoot (nadir)
-  // Find when moon reaches highest and lowest altitude
-  let moonOverhead: Date | undefined;
-  let moonUnderfoot: Date | undefined;
-  
-  const startDate = new Date(date);
-  startDate.setHours(0, 0, 0, 0);
-  const d = toDays(startDate);
-  
-  let maxAlt = -Math.PI;
-  let minAlt = Math.PI;
-  let maxTime = 0;
-  let minTime = 0;
-  
-  // Check every hour to find highest and lowest moon altitude
-  for (let i = 0; i < 24; i++) {
-    const pos = getMoonPosition(d + i / 24, latitude, longitude);
-    
-    if (pos.altitude > maxAlt) {
-      maxAlt = pos.altitude;
-      maxTime = d + i / 24;
-    }
-    
-    if (pos.altitude < minAlt) {
-      minAlt = pos.altitude;
-      minTime = d + i / 24;
-    }
-  }
-  
-  moonOverhead = fromJulian(maxTime);
-  moonUnderfoot = fromJulian(minTime);
   
   return {
     sunrise: sunTimes.sunrise,
@@ -876,10 +961,13 @@ export function getAstronomicalData(latitude: number, longitude: number, date: D
     moonPhaseCode: moonData.phaseCode,
     moonIllumination: moonData.illumination,
     moonFraction: moonData.fraction,
+    moonAgeDays: moonData.age,
+    moonDayNumber: moonData.dayNumber,
+    moonDayName: moonData.dayName,
     moonrise: moonTimes.moonrise,
     moonset: moonTimes.moonset,
-    moonOverhead,
-    moonUnderfoot
+    moonOverhead: transits.moonOverhead,
+    moonUnderfoot: transits.moonUnderfoot
   };
 }
 

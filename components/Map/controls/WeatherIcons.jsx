@@ -1,4 +1,5 @@
 import React, { useId } from 'react';
+import { calculateMoonPhase } from '@/lib/services/weatherService';
 
 /**
  * Simple SVG-style weather icons
@@ -151,105 +152,108 @@ export const WeatherIcon = ({ condition, size = 40, color = '#4CAF50' }) => {
   return <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{getIcon()}</div>;
 };
 
-/**
- * Moon phase icon with accurate visual representation
- * Uses mask to reveal illuminated portion (always white except true new moon)
- */
-const MOON_PHASE_SEGMENTS = [
-  { start: 0.0, end: 0.03, type: 'new' },
-  { start: 0.03, end: 0.09, direction: 'right', amount: 0.18 },
-  { start: 0.09, end: 0.16, direction: 'right', amount: 0.32 },
-  { start: 0.16, end: 0.23, direction: 'right', amount: 0.5 },
-  { start: 0.23, end: 0.30, direction: 'right', amount: 0.68 },
-  { start: 0.30, end: 0.38, direction: 'right', amount: 0.82 },
-  { start: 0.38, end: 0.45, direction: 'right', amount: 0.92 },
-  { start: 0.45, end: 0.55, type: 'full' },
-  { start: 0.55, end: 0.62, direction: 'left', amount: 0.92 },
-  { start: 0.62, end: 0.70, direction: 'left', amount: 0.82 },
-  { start: 0.70, end: 0.77, direction: 'left', amount: 0.68 },
-  { start: 0.77, end: 0.84, direction: 'left', amount: 0.5 },
-  { start: 0.84, end: 0.91, direction: 'left', amount: 0.32 },
-  { start: 0.91, end: 0.97, direction: 'left', amount: 0.18 },
-  { start: 0.97, end: 1.01, type: 'new' }
+const clamp01 = (v) => Math.min(1, Math.max(0, v ?? 0));
+
+export const MOON_DAY_CONFIG = [
+  { day: 0, label: 'New Moon', illumination: 0, waxing: true },
+  { day: 1, label: 'Waxing Crescent 1', illumination: 3, waxing: true },
+  { day: 2, label: 'Waxing Crescent 2', illumination: 7, waxing: true },
+  { day: 3, label: 'Waxing Crescent 3', illumination: 10, waxing: true },
+  { day: 4, label: 'Waxing Crescent 4', illumination: 14, waxing: true },
+  { day: 5, label: 'Waxing Crescent 5', illumination: 17, waxing: true },
+  { day: 6, label: 'Waxing Crescent 6', illumination: 21, waxing: true },
+  { day: 7, label: 'First Quarter', illumination: 25, waxing: true },
+  { day: 8, label: 'Waxing Gibbous 1', illumination: 32, waxing: true },
+  { day: 9, label: 'Waxing Gibbous 2', illumination: 39, waxing: true },
+  { day: 10, label: 'Waxing Gibbous 3', illumination: 46, waxing: true },
+  { day: 11, label: 'Waxing Gibbous 4', illumination: 54, waxing: true },
+  { day: 12, label: 'Waxing Gibbous 5', illumination: 61, waxing: true },
+  { day: 13, label: 'Waxing Gibbous 6', illumination: 68, waxing: true },
+  { day: 14, label: 'Full Moon', illumination: 100, waxing: false },
+  { day: 15, label: 'Waning Gibbous 1', illumination: 93, waxing: false },
+  { day: 16, label: 'Waning Gibbous 2', illumination: 86, waxing: false },
+  { day: 17, label: 'Waning Gibbous 3', illumination: 79, waxing: false },
+  { day: 18, label: 'Waning Gibbous 4', illumination: 71, waxing: false },
+  { day: 19, label: 'Waning Gibbous 5', illumination: 64, waxing: false },
+  { day: 20, label: 'Waning Gibbous 6', illumination: 57, waxing: false },
+  { day: 21, label: 'Last Quarter', illumination: 50, waxing: false },
+  { day: 22, label: 'Waning Crescent 1', illumination: 43, waxing: false },
+  { day: 23, label: 'Waning Crescent 2', illumination: 36, waxing: false },
+  { day: 24, label: 'Waning Crescent 3', illumination: 29, waxing: false },
+  { day: 25, label: 'Waning Crescent 4', illumination: 21, waxing: false },
+  { day: 26, label: 'Waning Crescent 5', illumination: 14, waxing: false },
+  { day: 27, label: 'Waning Crescent 6', illumination: 7, waxing: false },
+  { day: 28, label: 'Waning Crescent 7', illumination: 3, waxing: false },
+  { day: 29, label: 'Waning Crescent 8', illumination: 1, waxing: false },
 ];
 
-export const MoonIcon = ({ phase, size = 40, illumination, fraction }) => {
-  const phaseLower = (phase || '').toLowerCase();
-  const shadowColor = '#2a2a2a';
-  
+export const getMoonDay = (date) => {
+  const { dayNumber } = calculateMoonPhase(date);
+  return dayNumber;
+};
+
+export const MoonIcon = ({ illuminationPct = 0, waxing = true, size = 40 }) => {
   const cx = 100;
   const cy = 100;
   const r = 85;
-  const uniqueId = useId?.() ?? `moon-${size}-${Math.random().toString(36).slice(2, 7)}`;
-  const clipId = `${uniqueId}-clip`;
-  const gradientId = `${uniqueId}-grad`;
-  
-  const deriveFraction = () => {
-    if (typeof fraction === 'number') {
-      return Math.min(1, Math.max(0, fraction));
-    }
-    if (illumination !== undefined) {
-      const illumRatio = Math.min(1, Math.max(0, illumination / 100));
-      const angle = Math.acos(Math.max(-1, Math.min(1, 1 - 2 * illumRatio))) / (2 * Math.PI);
-      if (Number.isNaN(angle)) return 0;
-      if (phaseLower.includes('waning') || phaseLower.includes('last')) {
-        return 1 - angle;
-      }
-      if (phaseLower.includes('full')) return 0.5;
-      if (phaseLower.includes('new')) return 0;
-      return angle;
-    }
-    // Fallback based on phase name
-    if (phaseLower.includes('first quarter')) return 0.25;
-    if (phaseLower.includes('full')) return 0.5;
-    if (phaseLower.includes('last quarter')) return 0.75;
-    if (phaseLower.includes('waxing')) return 0.2;
-    if (phaseLower.includes('waning')) return 0.8;
-    return 0;
-  };
-  
-  const frac = deriveFraction();
-  const segment = MOON_PHASE_SEGMENTS.find(seg => frac >= seg.start && frac < seg.end) ?? MOON_PHASE_SEGMENTS[0];
-  const litAmount = segment.amount ?? (segment.type === 'full' ? 1 : 0);
-  const offsetDirection = segment.direction === 'left' ? 1 : -1;
-  const offset = segment.direction ? offsetDirection * (1 - litAmount) * r : 0;
-  
+  const shadowColor = '#1b1b1b';
+
+  const id = useId();
+  const litMaskId = `lit-mask-${id}`;
+  const shadowMaskId = `shadow-mask-${id}`;
+
+  const illumRatio = clamp01(illuminationPct / 100);
+
+  if (illumRatio <= 0.01) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 200 200">
+        <circle cx={cx} cy={cy} r={r} fill={shadowColor} stroke="#9E9E9E" strokeWidth="1" opacity="0.8" />
+      </svg>
+    );
+  }
+
+  if (illumRatio >= 0.99) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 200 200">
+        <circle cx={cx} cy={cy} r={r} fill="#f0f0f0" stroke="#9E9E9E" strokeWidth="1" opacity="0.8" />
+      </svg>
+    );
+  }
+
+  const k = 2 * illumRatio - 1;
+  const ellipseRx = Math.max(Math.abs(k) * r, 1);
+
   return (
     <svg width={size} height={size} viewBox="0 0 200 200">
       <defs>
-        <radialGradient id={gradientId}>
-          <stop offset="0%" stopColor="#FFFFFF" />
-          <stop offset="60%" stopColor="#F5F5F5" />
-          <stop offset="100%" stopColor="#E8E8E8" />
-        </radialGradient>
-        <clipPath id={clipId}>
-          <circle cx={cx} cy={cy} r={r} />
-        </clipPath>
-      </defs>
-      
-      {segment.type === 'new' ? (
-        <>
-          <circle cx={cx} cy={cy} r={r} fill={shadowColor} stroke="#666" strokeWidth="2" />
-          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#9E9E9E" strokeWidth="1" opacity="0.8" />
-        </>
-      ) : segment.type === 'full' ? (
-        <>
-          <circle cx={cx} cy={cy} r={r} fill={`url(#${gradientId})`} stroke="#666" strokeWidth="2" />
-          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#9E9E9E" strokeWidth="1" opacity="0.8" />
-        </>
-      ) : (
-        <>
-          <circle cx={cx} cy={cy} r={r} fill={`url(#${gradientId})`} stroke="#666" strokeWidth="2" />
-          <circle
-            cx={cx + offset}
+        <mask id={litMaskId}>
+          <rect width="200" height="200" fill="black" />
+          <circle cx={cx} cy={cy} r={r} fill="white" />
+          <ellipse
+            cx={cx + (waxing ? -1 : 1) * (r - ellipseRx)}
             cy={cy}
-            r={r}
-            fill={shadowColor}
-            clipPath={`url(#${clipId})`}
+            rx={ellipseRx}
+            ry={r}
+            fill="black"
           />
-          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#9E9E9E" strokeWidth="1" opacity="0.8" />
-        </>
-      )}
+        </mask>
+
+        <mask id={shadowMaskId}>
+          <rect width="200" height="200" fill="black" />
+          <circle cx={cx} cy={cy} r={r} fill="white" />
+          <ellipse
+            cx={cx + (waxing ? 1 : -1) * (r - ellipseRx)}
+            cy={cy}
+            rx={ellipseRx}
+            ry={r}
+            fill="black"
+          />
+        </mask>
+      </defs>
+
+      <circle cx={cx} cy={cy} r={r} fill="#f0f0f0" mask={`url(#${litMaskId})`} />
+      <circle cx={cx} cy={cy} r={r} fill={shadowColor} mask={`url(#${shadowMaskId})`} />
+      <circle cx={cx} cy={cy} r={r} stroke="#9E9E9E" strokeWidth="1" fill="none" opacity="0.8" />
     </svg>
   );
 };

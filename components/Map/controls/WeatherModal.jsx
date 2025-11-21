@@ -11,8 +11,37 @@ import {
   faCompass,
   faSync
 } from '@fortawesome/free-solid-svg-icons';
-import { getCurrentWeather, getForecast, getWeeklyForecast, getAstronomicalData, calculateMoonPhase, isWithinUnitedStates } from '@/lib/services/weatherService';
+import { getCurrentWeather, getForecast, getWeeklyForecast, getAstronomicalData, isWithinUnitedStates } from '@/lib/services/weatherService';
 import { WeatherIcon, MoonIcon } from './WeatherIcons';
+
+const formatDateWithOrdinal = (date = new Date()) => {
+  const day = date.getDate();
+  const suffixes = ['th', 'st', 'nd', 'rd'];
+  const v = day % 100;
+  const suffix = suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0];
+  const month = date.toLocaleDateString('en-US', { month: 'long' });
+  const year = date.getFullYear();
+  return `${month} ${day}${suffix}, ${year}`;
+};
+
+const isWaxingPhase = (phase, fraction) => {
+  const lower = (phase || '').toLowerCase();
+  if (lower.includes('waxing') || lower.includes('first')) return true;
+  if (lower.includes('waning') || lower.includes('last') || lower.includes('third')) return false;
+  if (typeof fraction === 'number') return fraction <= 0.5;
+  return true;
+};
+
+const normalizePhaseLabel = (label) => {
+  if (!label) return 'moon phase';
+  return label.replace(/\s+\d+$/i, '');
+};
+
+const formatMoonDescriptor = (phase, fraction, dayName) => {
+  const baseLabel = normalizePhaseLabel(dayName) || normalizePhaseLabel(phase) || 'moon phase';
+  const trend = isWaxingPhase(phase, fraction) ? 'getting brighter' : 'getting dimmer';
+  return `${baseLabel}, ${trend}`;
+};
 
 // Ensure accessibility for react-modal
 if (typeof window !== 'undefined') {
@@ -701,7 +730,7 @@ export const WeatherModal = ({ isOpen, onClose, map, isMobile }) => {
         {!loading && !error && activeTab === 'moon' && astroData && (
           <div>
             <h3 style={{ fontSize: '18px', marginBottom: '15px', color: '#fff' }}>
-              Moon Calendar - {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              Current Moon
             </h3>
             
             {/* Current Moon Info */}
@@ -712,21 +741,25 @@ export const WeatherModal = ({ isOpen, onClose, map, isMobile }) => {
               marginBottom: '20px',
               textAlign: 'center',
             }}>
-              <div style={{ marginBottom: '15px' }}>
+              <div style={{ fontSize: '16px', color: '#999', marginBottom: '10px' }}>
+                {formatDateWithOrdinal(new Date())}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                 <MoonIcon
-                  phase={astroData.moonPhase}
+                  illuminationPct={astroData.moonIllumination}
+                  waxing={isWaxingPhase(astroData.moonPhase, astroData.moonFraction)}
                   size={80}
-                  illumination={astroData.moonIllumination}
-                  fraction={astroData.moonFraction}
                 />
+                <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#fff' }}>
+                  {Math.round(astroData.moonIllumination)}% Illumination
+                </div>
               </div>
-              <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#fff', marginBottom: '8px' }}>
-                {astroData.moonPhase}
+              <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#fff', marginBottom: '6px', textTransform: 'capitalize' }}>
+                {normalizePhaseLabel(astroData.moonDayName) || normalizePhaseLabel(astroData.moonPhase)}
               </div>
-              <div style={{ fontSize: '16px', color: '#999', marginBottom: '15px' }}>
-                {Math.round(astroData.moonIllumination)}% Illuminated
+              <div style={{ fontSize: '16px', color: '#999', marginBottom: '12px', textTransform: 'capitalize' }}>
+                {formatMoonDescriptor(astroData.moonPhase, astroData.moonFraction, astroData.moonDayName)}
               </div>
-              
               {/* Moon Rise/Set */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #333' }}>
                 {astroData.moonrise && (
@@ -761,86 +794,6 @@ export const WeatherModal = ({ isOpen, onClose, map, isMobile }) => {
                     </div>
                   </div>
                 )}
-              </div>
-            </div>
-            
-            {/* Month Calendar */}
-            <div style={{
-              backgroundColor: '#2a2a2a',
-              borderRadius: '12px',
-              padding: '15px',
-            }}>
-              <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#fff', marginBottom: '15px', textAlign: 'center' }}>
-                Moon Phases This Month
-              </div>
-              
-              {/* Calendar Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px' }}>
-                {/* Day headers */}
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                  <div key={day} style={{ textAlign: 'center', fontSize: '12px', color: '#999', fontWeight: 'bold', padding: '5px' }}>
-                    {day}
-                  </div>
-                ))}
-                
-                {/* Calendar days */}
-                {(() => {
-                  const today = new Date();
-                  const year = today.getFullYear();
-                  const month = today.getMonth();
-                  const firstDay = new Date(year, month, 1);
-                  const lastDay = new Date(year, month + 1, 0);
-                  const startDay = firstDay.getDay();
-                  const daysInMonth = lastDay.getDate();
-                  
-                  const days = [];
-                  
-                  // Empty cells for days before month starts
-                  for (let i = 0; i < startDay; i++) {
-                    days.push(<div key={`empty-${i}`} />);
-                  }
-                  
-                  // Days of the month
-                  for (let day = 1; day <= daysInMonth; day++) {
-                    const date = new Date(year, month, day);
-                    const moonData = calculateMoonPhase(date);
-                    const isToday = day === today.getDate();
-                    
-                    days.push(
-                      <div
-                        key={day}
-                        style={{
-                          backgroundColor: isToday ? '#4CAF50' : '#1a1a1a',
-                          borderRadius: '8px',
-                          padding: '8px',
-                          textAlign: 'center',
-                          border: isToday ? '2px solid #4CAF50' : '1px solid #333',
-                        }}
-                      >
-                        <div style={{ fontSize: '12px', fontWeight: isToday ? 'bold' : 'normal', color: isToday ? '#fff' : '#999', marginBottom: '4px' }}>
-                          {day}
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'center' }}>
-                          <MoonIcon
-                            phase={moonData.phase}
-                            size={24}
-                            illumination={moonData.illumination}
-                            fraction={moonData.fraction}
-                          />
-                        </div>
-                      </div>
-                    );
-                  }
-                  
-                  return days;
-                })()}
-              </div>
-              
-              {/* Legend */}
-              <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #333' }}>
-                <div style={{ fontSize: '12px', color: '#999', textAlign: 'center' }}>
-                  Today is highlighted in green
-                </div>
               </div>
             </div>
           </div>
