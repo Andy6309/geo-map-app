@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Locate, Compass, Plus, Minus, Layers, CloudSun } from 'lucide-react';
+import { Locate, Compass, Plus, Minus, Layers, CloudSun, Map } from 'lucide-react';
 import { locateAndMarkUser } from '../utils/locateMeAction';
 
 /**
@@ -16,6 +16,7 @@ export const MobileBottomToolbar = ({
   onAreaButtonClick,
   onLayerToggle,
   onWeatherClick,
+  onBoundaryLayersClick,
   currentStyleId
 }) => {
   const [locating, setLocating] = useState(false);
@@ -172,6 +173,26 @@ export const MobileBottomToolbar = ({
           title="View Weather"
         >
           <CloudSun size={20} />
+        </button>
+
+        {/* Boundary Layers Button */}
+        <button
+          onClick={onBoundaryLayersClick}
+          style={{
+            width: '38px',
+            height: '38px',
+            borderRadius: '6px',
+            border: '1px solid #FF9800',
+            backgroundColor: '#fff',
+            color: '#FF9800',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+          title="Boundary Layers"
+        >
+          <Map size={20} />
         </button>
       </div>
 

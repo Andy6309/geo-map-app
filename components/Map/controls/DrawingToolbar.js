@@ -8,8 +8,9 @@ import { WaypointButton } from './WaypointButton';
 import LineButton from './Line';
 
 import AreaButton from './AreaButton';
+import { LayersButton } from './LayersButton';
 
-export const DrawingToolbar = ({ draw, map, mapContainerRef, waypointDrawerRef, onLineButtonClick, onAreaButtonClick }) => {
+export const DrawingToolbar = ({ draw, map, mapContainerRef, waypointDrawerRef, onLineButtonClick, onAreaButtonClick, onLayersButtonClick }) => {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -96,6 +97,7 @@ export const DrawingToolbar = ({ draw, map, mapContainerRef, waypointDrawerRef, 
       <WaypointButton map={map} mapContainerRef={mapContainerRef} waypointDrawerRef={waypointDrawerRef} />
       <LineButton onLineButtonClick={onLineButtonClick} />
       <AreaButton onAreaButtonClick={onAreaButtonClick} />
+      <LayersButton onClick={onLayersButtonClick} isMobile={isMobile} />
 
       {/* 🗑️ Delete button */}
       <button

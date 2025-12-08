@@ -748,6 +748,7 @@ export const WeatherModal = ({ isOpen, onClose, map, isMobile }) => {
                 <MoonIcon
                   illuminationPct={astroData.moonIllumination}
                   waxing={isWaxingPhase(astroData.moonPhase, astroData.moonFraction)}
+                  dayNumber={astroData.moonDayNumber}
                   size={80}
                 />
                 <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#fff' }}>

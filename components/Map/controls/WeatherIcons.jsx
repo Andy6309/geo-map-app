@@ -192,68 +192,48 @@ export const getMoonDay = (date) => {
   return dayNumber;
 };
 
-export const MoonIcon = ({ illuminationPct = 0, waxing = true, size = 40 }) => {
-  const cx = 100;
-  const cy = 100;
-  const r = 85;
-  const shadowColor = '#1b1b1b';
+/**
+ * Map moon day number (0-29) to Unicode moon phase symbol
+ * Using standard Unicode moon phase characters
+ */
+const getMoonSymbol = (dayNumber) => {
+  // Unicode moon phases (8 main phases)
+  const phases = [
+    '🌑', // New Moon (0)
+    '🌒', // Waxing Crescent (1-6)
+    '🌓', // First Quarter (7)
+    '🌔', // Waxing Gibbous (8-13)
+    '🌕', // Full Moon (14-15)
+    '🌖', // Waning Gibbous (16-20)
+    '🌗', // Last Quarter (21)
+    '🌘', // Waning Crescent (22-29)
+  ];
 
-  const id = useId();
-  const litMaskId = `lit-mask-${id}`;
-  const shadowMaskId = `shadow-mask-${id}`;
+  if (dayNumber === 0) return phases[0]; // New Moon
+  if (dayNumber >= 1 && dayNumber <= 6) return phases[1]; // Waxing Crescent
+  if (dayNumber === 7) return phases[2]; // First Quarter
+  if (dayNumber >= 8 && dayNumber <= 13) return phases[3]; // Waxing Gibbous
+  if (dayNumber >= 14 && dayNumber <= 15) return phases[4]; // Full Moon
+  if (dayNumber >= 16 && dayNumber <= 20) return phases[5]; // Waning Gibbous
+  if (dayNumber === 21) return phases[6]; // Last Quarter
+  return phases[7]; // Waning Crescent (22-29)
+};
 
-  const illumRatio = clamp01(illuminationPct / 100);
-
-  if (illumRatio <= 0.01) {
-    return (
-      <svg width={size} height={size} viewBox="0 0 200 200">
-        <circle cx={cx} cy={cy} r={r} fill={shadowColor} stroke="#9E9E9E" strokeWidth="1" opacity="0.8" />
-      </svg>
-    );
-  }
-
-  if (illumRatio >= 0.99) {
-    return (
-      <svg width={size} height={size} viewBox="0 0 200 200">
-        <circle cx={cx} cy={cy} r={r} fill="#f0f0f0" stroke="#9E9E9E" strokeWidth="1" opacity="0.8" />
-      </svg>
-    );
-  }
-
-  const k = 2 * illumRatio - 1;
-  const ellipseRx = Math.max(Math.abs(k) * r, 1);
+export const MoonIcon = ({ illuminationPct = 0, waxing = true, size = 40, dayNumber }) => {
+  // Calculate day number from illumination if not provided
+  const calculatedDayNumber = dayNumber ?? Math.round((illuminationPct / 100) * 29.53);
+  const moonSymbol = getMoonSymbol(calculatedDayNumber);
 
   return (
-    <svg width={size} height={size} viewBox="0 0 200 200">
-      <defs>
-        <mask id={litMaskId}>
-          <rect width="200" height="200" fill="black" />
-          <circle cx={cx} cy={cy} r={r} fill="white" />
-          <ellipse
-            cx={cx + (waxing ? -1 : 1) * (r - ellipseRx)}
-            cy={cy}
-            rx={ellipseRx}
-            ry={r}
-            fill="black"
-          />
-        </mask>
-
-        <mask id={shadowMaskId}>
-          <rect width="200" height="200" fill="black" />
-          <circle cx={cx} cy={cy} r={r} fill="white" />
-          <ellipse
-            cx={cx + (waxing ? 1 : -1) * (r - ellipseRx)}
-            cy={cy}
-            rx={ellipseRx}
-            ry={r}
-            fill="black"
-          />
-        </mask>
-      </defs>
-
-      <circle cx={cx} cy={cy} r={r} fill="#f0f0f0" mask={`url(#${litMaskId})`} />
-      <circle cx={cx} cy={cy} r={r} fill={shadowColor} mask={`url(#${shadowMaskId})`} />
-      <circle cx={cx} cy={cy} r={r} stroke="#9E9E9E" strokeWidth="1" fill="none" opacity="0.8" />
-    </svg>
+    <div style={{ 
+      display: 'inline-flex', 
+      alignItems: 'center', 
+      justifyContent: 'center',
+      fontSize: `${size}px`,
+      lineHeight: 1,
+      filter: 'grayscale(100%) brightness(1.2)',
+    }}>
+      {moonSymbol}
+    </div>
   );
 };

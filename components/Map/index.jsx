@@ -23,6 +23,7 @@ import { MobileBottomToolbar } from './controls/MobileBottomToolbar';
 import { MobileSearchBar } from './controls/MobileSearchBar';
 import { WeatherModal } from './controls/WeatherModal';
 import { WeatherButton } from './controls/WeatherButton';
+import { LayersModal } from './controls/LayersModal';
 
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -86,6 +87,17 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
 
     // --- Weather Modal State ---
     const [isWeatherModalOpen, setWeatherModalOpen] = useState(false);
+
+    // --- Layers Modal State ---
+    const [isLayersModalOpen, setLayersModalOpen] = useState(false);
+    const [countyBoundariesVisible, setCountyBoundariesVisible] = useState(() => {
+        // Load from localStorage, default to false if not set
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('countyBoundariesVisible');
+            return saved === 'true';
+        }
+        return false;
+    });
 
     // Handler for Area button in toolbar
     const handleAreaButtonClick = () => {
@@ -506,6 +518,33 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
         setLineModalNotes("");
     };
 
+    // --- Layer Toggle Handlers ---
+    const handleToggleCountyBoundaries = () => {
+        setCountyBoundariesVisible(prev => {
+            const newValue = !prev;
+            
+            // Save to localStorage for persistence
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('countyBoundariesVisible', newValue.toString());
+            }
+            
+            if (!map) {
+                console.error('Map not initialized');
+                return prev;
+            }
+            
+            // Toggle the 'admin' layer (layer 86 - contains county boundaries)
+            if (map.getLayer('admin')) {
+                console.log('Toggling admin layer to:', newValue ? 'visible' : 'none');
+                map.setLayoutProperty('admin', 'visibility', newValue ? 'visible' : 'none');
+            } else {
+                console.warn('admin layer not found in map style');
+            }
+            
+            return newValue;
+        });
+    };
+
     // --- Sync live measurements from LineMeasure.jsx ---
     // Render LineMeasure and update modal state via onUpdate
     // This must be inside the component render:
@@ -701,6 +740,13 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                         'text-halo-blur': 1
                     }
                 });
+            }
+
+            // Set initial visibility for admin layer (county boundaries)
+            // Hidden by default, controlled by countyBoundariesVisible state
+            if (initialMap.getLayer('admin')) {
+                initialMap.setLayoutProperty('admin', 'visibility', countyBoundariesVisible ? 'visible' : 'none');
+                console.log('Initial admin layer visibility set to:', countyBoundariesVisible ? 'visible' : 'none');
             }
         });
 
@@ -1520,6 +1566,7 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                             waypointDrawerRef={waypointDrawerRef}
                             onLineButtonClick={handleLineButtonClick} 
                             onAreaButtonClick={handleAreaButtonClick}
+                            onLayersButtonClick={() => setLayersModalOpen(true)}
                           />
                         )}
                         <ZoomControl map={map} />
@@ -1540,6 +1587,15 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                       isOpen={isWeatherModalOpen}
                       onClose={() => setWeatherModalOpen(false)}
                       map={map}
+                      isMobile={isMobile}
+                    />
+
+                    {/* Layers Modal - Always available */}
+                    <LayersModal
+                      isOpen={isLayersModalOpen}
+                      onClose={() => setLayersModalOpen(false)}
+                      countyBoundariesVisible={countyBoundariesVisible}
+                      onToggleCountyBoundaries={handleToggleCountyBoundaries}
                       isMobile={isMobile}
                     />
 
@@ -1684,6 +1740,12 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                                                     }
                                                 });
                                             }
+
+                                            // Restore admin layer visibility after style change
+                                            if (map.getLayer('admin')) {
+                                                map.setLayoutProperty('admin', 'visibility', countyBoundariesVisible ? 'visible' : 'none');
+                                                console.log('Restored admin layer visibility to:', countyBoundariesVisible ? 'visible' : 'none');
+                                            }
                                         });
                                     }
                                 }}
@@ -1775,6 +1837,7 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                     onLineButtonClick={handleLineButtonClick}
                     onAreaButtonClick={handleAreaButtonClick}
                     onWeatherClick={() => setWeatherModalOpen(true)}
+                    onBoundaryLayersClick={() => setLayersModalOpen(true)}
                     onLayerToggle={() => {
                       // Toggle between 2D topo and 3D satellite
                       const newStyleId = currentStyleId === '2d-topo' ? '3d-satellite' : '2d-topo';
@@ -1791,6 +1854,12 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                           map.setZoom(zoom);
                           map.setBearing(bearing);
                           map.setPitch(pitch);
+
+                          // Restore admin layer visibility after style change
+                          if (map.getLayer('admin')) {
+                            map.setLayoutProperty('admin', 'visibility', countyBoundariesVisible ? 'visible' : 'none');
+                            console.log('Restored admin layer visibility to:', countyBoundariesVisible ? 'visible' : 'none');
+                          }
                         });
                       }
                     }}
