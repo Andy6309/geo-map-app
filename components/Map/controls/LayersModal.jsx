@@ -54,9 +54,9 @@ const US_STATES = [
 export const LayersModal = ({ 
   isOpen, 
   onClose, 
-  countyLayers,
+  countyBoundariesVisible,
+  onToggleCountyBoundaries,
   wmaLayers,
-  onToggleCountyLayer,
   onToggleWMALayer,
   isMobile 
 }) => {
@@ -220,6 +220,21 @@ export const LayersModal = ({
         </button>
       </div>
 
+      {/* County Boundaries - Top Level Toggle */}
+      <div style={sectionStyle}>
+        <div style={sectionTitleStyle}>Boundaries</div>
+        
+        <div style={toggleRowStyle}>
+          <span>County Boundaries (USA)</span>
+          <input
+            type="checkbox"
+            checked={countyBoundariesVisible}
+            onChange={onToggleCountyBoundaries}
+            style={checkboxStyle}
+          />
+        </div>
+      </div>
+
       {/* Search Bar */}
       <input
         type="text"
@@ -229,15 +244,14 @@ export const LayersModal = ({
         style={searchInputStyle}
       />
 
-      {/* States List */}
+      {/* States List - WMA Only */}
       <div style={sectionStyle}>
-        <div style={sectionTitleStyle}>State Layers</div>
+        <div style={sectionTitleStyle}>Wildlife Management Areas (WMA)</div>
         
         <div style={scrollContainerStyle}>
           {filteredStates.map(state => {
             const isExpanded = expandedStates[state];
             const isKentucky = state === 'Kentucky';
-            const countyEnabled = countyLayers?.[state] || false;
             const wmaEnabled = wmaLayers?.[state] || false;
 
             return (
@@ -257,20 +271,9 @@ export const LayersModal = ({
 
                 {isExpanded && (
                   <div style={optionsContainerStyle}>
-                    {/* County Toggle */}
-                    <div style={optionRowStyle}>
-                      <span>County Boundaries</span>
-                      <input
-                        type="checkbox"
-                        checked={countyEnabled}
-                        onChange={() => onToggleCountyLayer(state)}
-                        style={checkboxStyle}
-                      />
-                    </div>
-
                     {/* WMA Toggle */}
                     <div style={optionRowStyle}>
-                      <span>WMA (Wildlife Management Areas)</span>
+                      <span>WMA Boundaries</span>
                       {isKentucky ? (
                         <input
                           type="checkbox"

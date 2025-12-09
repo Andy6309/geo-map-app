@@ -99,15 +99,6 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
         return false;
     });
 
-    // County layers per state (object mapping state name to boolean)
-    const [countyLayers, setCountyLayers] = useState(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('countyLayers');
-            return saved ? JSON.parse(saved) : {};
-        }
-        return {};
-    });
-
     // WMA layers per state (object mapping state name to boolean)
     const [wmaLayers, setWmaLayers] = useState(() => {
         if (typeof window !== 'undefined') {
@@ -560,29 +551,6 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
             }
             
             return newValue;
-        });
-    };
-
-    const handleToggleCountyLayer = (stateName) => {
-        setCountyLayers(prev => {
-            const newLayers = {
-                ...prev,
-                [stateName]: !prev[stateName]
-            };
-            
-            // Save to localStorage
-            if (typeof window !== 'undefined') {
-                localStorage.setItem('countyLayers', JSON.stringify(newLayers));
-            }
-            
-            // Update map layer visibility
-            if (map && map.getLayer('admin')) {
-                // For now, show admin layer if any state has counties enabled
-                const anyEnabled = Object.values(newLayers).some(v => v);
-                map.setLayoutProperty('admin', 'visibility', anyEnabled ? 'visible' : 'none');
-            }
-            
-            return newLayers;
         });
     };
 
@@ -1710,9 +1678,9 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                     <LayersModal
                       isOpen={isLayersModalOpen}
                       onClose={() => setLayersModalOpen(false)}
-                      countyLayers={countyLayers}
+                      countyBoundariesVisible={countyBoundariesVisible}
+                      onToggleCountyBoundaries={handleToggleCountyBoundaries}
                       wmaLayers={wmaLayers}
-                      onToggleCountyLayer={handleToggleCountyLayer}
                       onToggleWMALayer={handleToggleWMALayer}
                       isMobile={isMobile}
                     />
