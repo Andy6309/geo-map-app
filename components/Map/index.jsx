@@ -99,6 +99,24 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
         return false;
     });
 
+    // County layers per state (object mapping state name to boolean)
+    const [countyLayers, setCountyLayers] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('countyLayers');
+            return saved ? JSON.parse(saved) : {};
+        }
+        return {};
+    });
+
+    // WMA layers per state (object mapping state name to boolean)
+    const [wmaLayers, setWmaLayers] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('wmaLayers');
+            return saved ? JSON.parse(saved) : {};
+        }
+        return {};
+    });
+
     // Handler for Area button in toolbar
     const handleAreaButtonClick = () => {
         if (draw && map) {
@@ -545,6 +563,58 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
         });
     };
 
+    const handleToggleCountyLayer = (stateName) => {
+        setCountyLayers(prev => {
+            const newLayers = {
+                ...prev,
+                [stateName]: !prev[stateName]
+            };
+            
+            // Save to localStorage
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('countyLayers', JSON.stringify(newLayers));
+            }
+            
+            // Update map layer visibility
+            if (map && map.getLayer('admin')) {
+                // For now, show admin layer if any state has counties enabled
+                const anyEnabled = Object.values(newLayers).some(v => v);
+                map.setLayoutProperty('admin', 'visibility', anyEnabled ? 'visible' : 'none');
+            }
+            
+            return newLayers;
+        });
+    };
+
+    const handleToggleWMALayer = (stateName) => {
+        setWmaLayers(prev => {
+            const newLayers = {
+                ...prev,
+                [stateName]: !prev[stateName]
+            };
+            
+            // Save to localStorage
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('wmaLayers', JSON.stringify(newLayers));
+            }
+            
+            // Update map layer visibility for WMA
+            if (map) {
+                const isVisible = newLayers[stateName];
+                
+                // Toggle WMA-Line and WMA-Fill layers
+                if (map.getLayer('WMA-Line')) {
+                    map.setLayoutProperty('WMA-Line', 'visibility', isVisible ? 'visible' : 'none');
+                }
+                if (map.getLayer('WMA-Fill')) {
+                    map.setLayoutProperty('WMA-Fill', 'visibility', isVisible ? 'visible' : 'none');
+                }
+            }
+            
+            return newLayers;
+        });
+    };
+
     // --- Sync live measurements from LineMeasure.jsx ---
     // Render LineMeasure and update modal state via onUpdate
     // This must be inside the component render:
@@ -738,6 +808,52 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                         'text-halo-color': '#fff',
                         'text-halo-width': 2,
                         'text-halo-blur': 1
+                    }
+                });
+            }
+
+            // Add WMA (Wildlife Management Area) layers for Kentucky
+            // WMA-Filter group for all map styles
+            if (!initialMap.getSource('WMA-Source')) {
+                initialMap.addSource('WMA-Source', {
+                    type: 'vector',
+                    url: 'mapbox://mapbox.us_census_states_2015' // Placeholder - replace with actual WMA tileset
+                });
+            }
+
+            // WMA-Fill layer
+            if (!initialMap.getLayer('WMA-Fill')) {
+                initialMap.addLayer({
+                    id: 'WMA-Fill',
+                    type: 'fill',
+                    source: 'WMA-Source',
+                    'source-layer': 'states', // Replace with actual source layer name
+                    filter: ['==', ['get', 'STATE_NAME'], 'Kentucky'], // Filter for Kentucky WMAs
+                    paint: {
+                        'fill-color': '#10b981', // Green fill for WMAs
+                        'fill-opacity': 0.2
+                    },
+                    layout: {
+                        'visibility': wmaLayers['Kentucky'] ? 'visible' : 'none'
+                    }
+                });
+            }
+
+            // WMA-Line layer
+            if (!initialMap.getLayer('WMA-Line')) {
+                initialMap.addLayer({
+                    id: 'WMA-Line',
+                    type: 'line',
+                    source: 'WMA-Source',
+                    'source-layer': 'states', // Replace with actual source layer name
+                    filter: ['==', ['get', 'STATE_NAME'], 'Kentucky'], // Filter for Kentucky WMAs
+                    paint: {
+                        'line-color': '#059669', // Darker green for WMA boundaries
+                        'line-width': 2,
+                        'line-opacity': 0.8
+                    },
+                    layout: {
+                        'visibility': wmaLayers['Kentucky'] ? 'visible' : 'none'
                     }
                 });
             }
@@ -1594,8 +1710,10 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                     <LayersModal
                       isOpen={isLayersModalOpen}
                       onClose={() => setLayersModalOpen(false)}
-                      countyBoundariesVisible={countyBoundariesVisible}
-                      onToggleCountyBoundaries={handleToggleCountyBoundaries}
+                      countyLayers={countyLayers}
+                      wmaLayers={wmaLayers}
+                      onToggleCountyLayer={handleToggleCountyLayer}
+                      onToggleWMALayer={handleToggleWMALayer}
                       isMobile={isMobile}
                     />
 
@@ -1746,6 +1864,49 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                                                 map.setLayoutProperty('admin', 'visibility', countyBoundariesVisible ? 'visible' : 'none');
                                                 console.log('Restored admin layer visibility to:', countyBoundariesVisible ? 'visible' : 'none');
                                             }
+
+                                            // Restore WMA layers after style change
+                                            if (!map.getSource('WMA-Source')) {
+                                                map.addSource('WMA-Source', {
+                                                    type: 'vector',
+                                                    url: 'mapbox://mapbox.us_census_states_2015' // Placeholder - replace with actual WMA tileset
+                                                });
+                                            }
+
+                                            if (!map.getLayer('WMA-Fill')) {
+                                                map.addLayer({
+                                                    id: 'WMA-Fill',
+                                                    type: 'fill',
+                                                    source: 'WMA-Source',
+                                                    'source-layer': 'states',
+                                                    filter: ['==', ['get', 'STATE_NAME'], 'Kentucky'],
+                                                    paint: {
+                                                        'fill-color': '#10b981',
+                                                        'fill-opacity': 0.2
+                                                    },
+                                                    layout: {
+                                                        'visibility': wmaLayers['Kentucky'] ? 'visible' : 'none'
+                                                    }
+                                                });
+                                            }
+
+                                            if (!map.getLayer('WMA-Line')) {
+                                                map.addLayer({
+                                                    id: 'WMA-Line',
+                                                    type: 'line',
+                                                    source: 'WMA-Source',
+                                                    'source-layer': 'states',
+                                                    filter: ['==', ['get', 'STATE_NAME'], 'Kentucky'],
+                                                    paint: {
+                                                        'line-color': '#059669',
+                                                        'line-width': 2,
+                                                        'line-opacity': 0.8
+                                                    },
+                                                    layout: {
+                                                        'visibility': wmaLayers['Kentucky'] ? 'visible' : 'none'
+                                                    }
+                                                });
+                                            }
                                         });
                                     }
                                 }}
@@ -1859,6 +2020,49 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                           if (map.getLayer('admin')) {
                             map.setLayoutProperty('admin', 'visibility', countyBoundariesVisible ? 'visible' : 'none');
                             console.log('Restored admin layer visibility to:', countyBoundariesVisible ? 'visible' : 'none');
+                          }
+
+                          // Restore WMA layers after style change
+                          if (!map.getSource('WMA-Source')) {
+                            map.addSource('WMA-Source', {
+                              type: 'vector',
+                              url: 'mapbox://mapbox.us_census_states_2015' // Placeholder - replace with actual WMA tileset
+                            });
+                          }
+
+                          if (!map.getLayer('WMA-Fill')) {
+                            map.addLayer({
+                              id: 'WMA-Fill',
+                              type: 'fill',
+                              source: 'WMA-Source',
+                              'source-layer': 'states',
+                              filter: ['==', ['get', 'STATE_NAME'], 'Kentucky'],
+                              paint: {
+                                'fill-color': '#10b981',
+                                'fill-opacity': 0.2
+                              },
+                              layout: {
+                                'visibility': wmaLayers['Kentucky'] ? 'visible' : 'none'
+                              }
+                            });
+                          }
+
+                          if (!map.getLayer('WMA-Line')) {
+                            map.addLayer({
+                              id: 'WMA-Line',
+                              type: 'line',
+                              source: 'WMA-Source',
+                              'source-layer': 'states',
+                              filter: ['==', ['get', 'STATE_NAME'], 'Kentucky'],
+                              paint: {
+                                'line-color': '#059669',
+                                'line-width': 2,
+                                'line-opacity': 0.8
+                              },
+                              layout: {
+                                'visibility': wmaLayers['Kentucky'] ? 'visible' : 'none'
+                              }
+                            });
                           }
                         });
                       }
