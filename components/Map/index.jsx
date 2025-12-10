@@ -1456,11 +1456,15 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
         });
 
         return () => {
-            if (!map) return;
+            if (!map || !map.getStyle()) return;
             allInteractiveLayers.forEach(layerId => {
-                if (map.getLayer(layerId)) {
-                    map.off('mouseenter', layerId, handleMouseEnter);
-                    map.off('mouseleave', layerId, handleMouseLeave);
+                try {
+                    if (map.getLayer(layerId)) {
+                        map.off('mouseenter', layerId, handleMouseEnter);
+                        map.off('mouseleave', layerId, handleMouseLeave);
+                    }
+                } catch (error) {
+                    // Map might be destroyed during cleanup, ignore errors
                 }
             });
         };
