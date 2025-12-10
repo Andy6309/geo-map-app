@@ -251,7 +251,7 @@ export const LayersModal = ({
         </div>
 
         <div style={toggleRowStyle}>
-          <span>National Parks</span>
+          <span>National Parks (Landuse)</span>
           <input
             type="checkbox"
             checked={nationalParksVisible}
