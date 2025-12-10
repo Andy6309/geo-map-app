@@ -25,6 +25,8 @@ import { WeatherModal } from './controls/WeatherModal';
 import { WeatherButton } from './controls/WeatherButton';
 import { LayersModal } from './controls/LayersModal';
 import { WMAModal } from './controls/WMAModal';
+import { NationalParkModal } from './controls/NationalParkModal';
+import { CombinedPropertiesModal } from './controls/CombinedPropertiesModal';
 
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -112,6 +114,24 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
     // --- WMA Modal State ---
     const [isWMAModalOpen, setWMAModalOpen] = useState(false);
     const [selectedWMAData, setSelectedWMAData] = useState(null);
+
+    // --- National Parks State ---
+    const [nationalParksVisible, setNationalParksVisible] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('nationalParksVisible');
+            return saved === 'true';
+        }
+        return false;
+    });
+
+    // --- National Park Modal State ---
+    const [isNationalParkModalOpen, setNationalParkModalOpen] = useState(false);
+    const [selectedParkData, setSelectedParkData] = useState(null);
+
+    // --- Combined Properties Modal State ---
+    const [isCombinedModalOpen, setCombinedModalOpen] = useState(false);
+    const [combinedWMAData, setCombinedWMAData] = useState(null);
+    const [combinedParkData, setCombinedParkData] = useState(null);
 
     // Handler for Area button in toolbar
     const handleAreaButtonClick = () => {
@@ -588,6 +608,29 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
             }
             
             return newLayers;
+        });
+    };
+
+    const handleToggleNationalParks = () => {
+        setNationalParksVisible(prev => {
+            const newValue = !prev;
+            
+            // Save to localStorage
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('nationalParksVisible', newValue.toString());
+            }
+            
+            if (map) {
+                // Toggle National Parks layers
+                if (map.getLayer('U.S-National Park-Fill')) {
+                    map.setLayoutProperty('U.S-National Park-Fill', 'visibility', newValue ? 'visible' : 'none');
+                }
+                if (map.getLayer('U.S-National Park-Line')) {
+                    map.setLayoutProperty('U.S-National Park-Line', 'visibility', newValue ? 'visible' : 'none');
+                }
+            }
+            
+            return newValue;
         });
     };
 
@@ -1237,12 +1280,44 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
         const handleClick = (e) => {
             document.querySelectorAll('.mapboxgl-popup').forEach(popup => popup.remove());
             
-            // First check for WMA layers (all state-specific WMA-Fill layers)
+            // Check for National Parks
+            const parkFeatures = map.queryRenderedFeatures(e.point, {
+                layers: ['U.S-National Park-Fill'].filter(layerId => map.getLayer(layerId))
+            });
+            
+            // Check for WMA layers (all state-specific WMA-Fill layers)
             const wmaLayerIds = Object.keys(wmaLayers).map(state => `${state}-WMA-Fill`);
             const wmaFeatures = map.queryRenderedFeatures(e.point, {
                 layers: wmaLayerIds.filter(layerId => map.getLayer(layerId))
             });
 
+            // If both WMA and National Park are present, show combined modal
+            if (parkFeatures.length > 0 && wmaFeatures.length > 0) {
+                const parkFeature = parkFeatures[0];
+                const wmaFeature = wmaFeatures[0];
+                console.log('Clicked overlapping WMA and National Park features');
+                
+                // Open combined modal with both properties
+                setCombinedParkData(parkFeature.properties);
+                setCombinedWMAData(wmaFeature.properties);
+                setCombinedModalOpen(true);
+                
+                return;
+            }
+
+            // If only National Park is present
+            if (parkFeatures.length > 0) {
+                const parkFeature = parkFeatures[0];
+                console.log('Clicked National Park feature:', parkFeature.properties);
+                
+                // Open National Park modal with feature properties
+                setSelectedParkData(parkFeature.properties);
+                setNationalParkModalOpen(true);
+                
+                return;
+            }
+            
+            // If only WMA is present
             if (wmaFeatures.length > 0) {
                 const wmaFeature = wmaFeatures[0];
                 console.log('Clicked WMA feature:', wmaFeature.properties);
@@ -1251,7 +1326,7 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                 setSelectedWMAData(wmaFeature.properties);
                 setWMAModalOpen(true);
                 
-                return; // Don't check for other features if WMA was clicked
+                return;
             }
             
             // Check if a user-drawn feature was clicked
@@ -1351,9 +1426,9 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
             map.off('click', handleClick);
             map.off('touchend', handleClick);
         };
-    }, [map, draw, savedLines, savedAreas, handleEditFeature, handleDeleteFeature, wmaLayers, isMobile, setSelectedWMAData, setWMAModalOpen]);
+    }, [map, draw, savedLines, savedAreas, handleEditFeature, handleDeleteFeature, wmaLayers, isMobile, setSelectedWMAData, setWMAModalOpen, setSelectedParkData, setNationalParkModalOpen, setCombinedWMAData, setCombinedParkData, setCombinedModalOpen]);
 
-    // Add cursor pointer for WMA layers on hover
+    // Add cursor pointer for WMA and National Park layers on hover
     useEffect(() => {
         if (!map) return;
 
@@ -1361,6 +1436,9 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
             `${state}-WMA-Fill`,
             `${state}-WMA-Line`
         ]);
+
+        const nationalParkLayerIds = ['U.S-National Park-Fill', 'U.S-National Park-Line'];
+        const allInteractiveLayers = [...wmaLayerIds, ...nationalParkLayerIds];
 
         const handleMouseEnter = () => {
             map.getCanvas().style.cursor = 'pointer';
@@ -1370,17 +1448,16 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
             map.getCanvas().style.cursor = '';
         };
 
-        // Add hover effects for all WMA layers that exist
-        wmaLayerIds.forEach(layerId => {
+        allInteractiveLayers.forEach(layerId => {
             if (map.getLayer(layerId)) {
                 map.on('mouseenter', layerId, handleMouseEnter);
                 map.on('mouseleave', layerId, handleMouseLeave);
             }
         });
 
-        // Cleanup
         return () => {
-            wmaLayerIds.forEach(layerId => {
+            if (!map) return;
+            allInteractiveLayers.forEach(layerId => {
                 if (map.getLayer(layerId)) {
                     map.off('mouseenter', layerId, handleMouseEnter);
                     map.off('mouseleave', layerId, handleMouseLeave);
@@ -1706,6 +1783,8 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                       onClose={() => setLayersModalOpen(false)}
                       countyBoundariesVisible={countyBoundariesVisible}
                       onToggleCountyBoundaries={handleToggleCountyBoundaries}
+                      nationalParksVisible={nationalParksVisible}
+                      onToggleNationalParks={handleToggleNationalParks}
                       wmaLayers={wmaLayers}
                       onToggleWMALayer={handleToggleWMALayer}
                       isMobile={isMobile}
@@ -1719,6 +1798,30 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                         setSelectedWMAData(null);
                       }}
                       wmaData={selectedWMAData}
+                      isMobile={isMobile}
+                    />
+
+                    {/* National Park Modal - Shows park properties when clicked */}
+                    <NationalParkModal
+                      isOpen={isNationalParkModalOpen}
+                      onClose={() => {
+                        setNationalParkModalOpen(false);
+                        setSelectedParkData(null);
+                      }}
+                      parkData={selectedParkData}
+                      isMobile={isMobile}
+                    />
+
+                    {/* Combined Properties Modal - Shows both WMA and National Park when overlapping */}
+                    <CombinedPropertiesModal
+                      isOpen={isCombinedModalOpen}
+                      onClose={() => {
+                        setCombinedModalOpen(false);
+                        setCombinedWMAData(null);
+                        setCombinedParkData(null);
+                      }}
+                      wmaData={combinedWMAData}
+                      parkData={combinedParkData}
                       isMobile={isMobile}
                     />
 

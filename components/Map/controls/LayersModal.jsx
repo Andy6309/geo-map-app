@@ -17,13 +17,14 @@ if (typeof window !== 'undefined') {
 const getModalStyle = (isMobile) => ({
   overlay: {
     zIndex: 100001,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: 'transparent', // Transparent to allow map interaction
     display: 'flex',
     alignItems: isMobile ? 'flex-end' : 'flex-start',
     justifyContent: isMobile ? 'center' : 'flex-end',
     paddingTop: isMobile ? '0' : '5px',
     paddingRight: isMobile ? '0' : '20px',
     paddingBottom: isMobile ? '0' : '20px',
+    pointerEvents: 'none', // Allow clicks to pass through overlay
   },
   content: {
     position: 'relative',
@@ -39,6 +40,7 @@ const getModalStyle = (isMobile) => ({
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
+    pointerEvents: 'auto', // Re-enable pointer events on the modal content itself
   }
 });
 
@@ -61,6 +63,8 @@ export const LayersModal = ({
   onClose, 
   countyBoundariesVisible,
   onToggleCountyBoundaries,
+  nationalParksVisible,
+  onToggleNationalParks,
   wmaLayers,
   onToggleWMALayer,
   isMobile 
@@ -215,7 +219,7 @@ export const LayersModal = ({
       onRequestClose={onClose}
       style={getModalStyle(isMobile)}
       contentLabel="Map Layers"
-      shouldCloseOnOverlayClick={true}
+      shouldCloseOnOverlayClick={false}
       shouldCloseOnEsc={true}
     >
       {/* Header - Fixed */}
@@ -232,16 +236,26 @@ export const LayersModal = ({
         overflowY: 'auto', 
         padding: isMobile ? '16px' : '0 22px 20px 22px' 
       }}>
-        {/* County Boundaries - Top Level Toggle */}
+        {/* National Filters - Top Level Toggles */}
         <div style={sectionStyle}>
-        <div style={sectionTitleStyle}>Boundaries</div>
+        <div style={sectionTitleStyle}>National</div>
         
         <div style={toggleRowStyle}>
-          <span>County Boundaries (USA)</span>
+          <span>County Boundaries</span>
           <input
             type="checkbox"
             checked={countyBoundariesVisible}
             onChange={onToggleCountyBoundaries}
+            style={checkboxStyle}
+          />
+        </div>
+
+        <div style={toggleRowStyle}>
+          <span>National Parks</span>
+          <input
+            type="checkbox"
+            checked={nationalParksVisible}
+            onChange={onToggleNationalParks}
             style={checkboxStyle}
           />
         </div>
@@ -273,14 +287,28 @@ export const LayersModal = ({
               {Object.keys(wmaLayers)
                 .filter(state => wmaLayers[state])
                 .map(state => (
-                  <div key={`active-${state}`} style={toggleRowStyle}>
-                    <span>{state}</span>
-                    <input
-                      type="checkbox"
-                      checked={true}
-                      onChange={() => onToggleWMALayer(state)}
-                      style={checkboxStyle}
-                    />
+                  <div key={`active-${state}`} style={{ marginBottom: '12px' }}>
+                    {/* State Name */}
+                    <div style={{ 
+                      fontSize: '13px', 
+                      fontWeight: '600', 
+                      color: '#374151',
+                      marginBottom: '6px'
+                    }}>
+                      {state}
+                    </div>
+                    {/* Active Filters for this State */}
+                    <div style={{ paddingLeft: '12px' }}>
+                      <div style={toggleRowStyle}>
+                        <span style={{ fontSize: '12px' }}>WMA Boundaries</span>
+                        <input
+                          type="checkbox"
+                          checked={true}
+                          onChange={() => onToggleWMALayer(state)}
+                          style={checkboxStyle}
+                        />
+                      </div>
+                    </div>
                   </div>
                 ))}
             </div>
