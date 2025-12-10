@@ -332,7 +332,7 @@ export const LayersModal = ({
         <div style={scrollContainerStyle}>
           {filteredStates.map(state => {
             const isExpanded = expandedStates[state];
-            const wmaAvailable = state === 'Kentucky' || state === 'Ohio' || state === 'Georgia' || state === 'Tennessee';
+            const wmaAvailable = state === 'Kentucky' || state === 'Ohio' || state === 'Georgia' || state === 'Tennessee'|| state === 'Arkansas';
             const wmaEnabled = wmaLayers?.[state] || false;
 
             return (

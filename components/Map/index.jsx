@@ -1975,20 +1975,28 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
 
                                             // Restore WMA layer visibility after style change
                                             // WMA layers are defined in Mapbox Studio with naming: [StateName]-WMA-Fill/Line
-                                            // Restore visibility for all enabled states
-                                            Object.keys(wmaLayers).forEach(stateName => {
-                                                if (wmaLayers[stateName]) {
-                                                    const fillLayerId = `${stateName}-WMA-Fill`;
-                                                    const lineLayerId = `${stateName}-WMA-Line`;
-                                                    
-                                                    if (map.getLayer(fillLayerId)) {
-                                                        map.setLayoutProperty(fillLayerId, 'visibility', 'visible');
-                                                    }
-                                                    if (map.getLayer(lineLayerId)) {
-                                                        map.setLayoutProperty(lineLayerId, 'visibility', 'visible');
-                                                    }
+                                            // Check all possible WMA states and restore their visibility
+                                            const allPossibleStates = ['Kentucky', 'Ohio', 'Georgia', 'Tennessee', 'Arkansas'];
+                                            allPossibleStates.forEach(stateName => {
+                                                const isEnabled = wmaLayers[stateName] || false;
+                                                const fillLayerId = `${stateName}-WMA-Fill`;
+                                                const lineLayerId = `${stateName}-WMA-Line`;
+                                                
+                                                if (map.getLayer(fillLayerId)) {
+                                                    map.setLayoutProperty(fillLayerId, 'visibility', isEnabled ? 'visible' : 'none');
+                                                }
+                                                if (map.getLayer(lineLayerId)) {
+                                                    map.setLayoutProperty(lineLayerId, 'visibility', isEnabled ? 'visible' : 'none');
                                                 }
                                             });
+
+                                            // Restore National Parks visibility after style change
+                                            if (map.getLayer('U.S-National Park-Fill')) {
+                                                map.setLayoutProperty('U.S-National Park-Fill', 'visibility', nationalParksVisible ? 'visible' : 'none');
+                                            }
+                                            if (map.getLayer('U.S-National Park-Line')) {
+                                                map.setLayoutProperty('U.S-National Park-Line', 'visibility', nationalParksVisible ? 'visible' : 'none');
+                                            }
                                         });
                                     }
                                 }}
@@ -2106,20 +2114,28 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
 
                           // Restore WMA layer visibility after style change
                           // WMA layers are defined in Mapbox Studio with naming: [StateName]-WMA-Fill/Line
-                          // Restore visibility for all enabled states
-                          Object.keys(wmaLayers).forEach(stateName => {
-                            if (wmaLayers[stateName]) {
-                              const fillLayerId = `${stateName}-WMA-Fill`;
-                              const lineLayerId = `${stateName}-WMA-Line`;
-                              
-                              if (map.getLayer(fillLayerId)) {
-                                map.setLayoutProperty(fillLayerId, 'visibility', 'visible');
-                              }
-                              if (map.getLayer(lineLayerId)) {
-                                map.setLayoutProperty(lineLayerId, 'visibility', 'visible');
-                              }
+                          // Check all possible WMA states and restore their visibility
+                          const allPossibleStates = ['Kentucky', 'Ohio', 'Georgia', 'Tennessee', 'Arkansas'];
+                          allPossibleStates.forEach(stateName => {
+                            const isEnabled = wmaLayers[stateName] || false;
+                            const fillLayerId = `${stateName}-WMA-Fill`;
+                            const lineLayerId = `${stateName}-WMA-Line`;
+                            
+                            if (map.getLayer(fillLayerId)) {
+                              map.setLayoutProperty(fillLayerId, 'visibility', isEnabled ? 'visible' : 'none');
+                            }
+                            if (map.getLayer(lineLayerId)) {
+                              map.setLayoutProperty(lineLayerId, 'visibility', isEnabled ? 'visible' : 'none');
                             }
                           });
+
+                          // Restore National Parks visibility after style change
+                          if (map.getLayer('U.S-National Park-Fill')) {
+                            map.setLayoutProperty('U.S-National Park-Fill', 'visibility', nationalParksVisible ? 'visible' : 'none');
+                          }
+                          if (map.getLayer('U.S-National Park-Line')) {
+                            map.setLayoutProperty('U.S-National Park-Line', 'visibility', nationalParksVisible ? 'visible' : 'none');
+                          }
                         });
                       }
                     }}

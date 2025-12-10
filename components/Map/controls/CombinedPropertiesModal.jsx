@@ -45,6 +45,22 @@ export const CombinedPropertiesModal = ({ isOpen, onClose, wmaData, parkData, is
 
   const modalStyle = getModalStyle(isMobile);
 
+  // Extract and format the CLASS property for the park section title
+  const getParkSectionTitle = () => {
+    if (!parkData) return 'Landuse Area';
+    if (!parkData.class && !parkData.CLASS) return 'Landuse Area';
+    
+    const classValue = parkData.class || parkData.CLASS;
+    
+    // Format: national_park -> National Park, wetland -> Wetland
+    return classValue
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  const parkSectionTitle = getParkSectionTitle();
+
   // Styles
   const headerStyle = {
     display: 'flex',
@@ -151,7 +167,7 @@ export const CombinedPropertiesModal = ({ isOpen, onClose, wmaData, parkData, is
         {/* National Park Section */}
         {parkData && (
           <div style={sectionSpacingStyle}>
-            <div style={parkSectionHeaderStyle}>National Park</div>
+            <div style={parkSectionHeaderStyle}>{parkSectionTitle}</div>
             {Object.entries(parkData).map(([key, value]) => (
               <div key={`park-${key}`} style={propertyRowStyle}>
                 <div style={propertyLabelStyle}>{formatKey(key)}</div>

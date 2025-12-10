@@ -45,6 +45,21 @@ export const NationalParkModal = ({ isOpen, onClose, parkData, isMobile }) => {
 
   const modalStyle = getModalStyle(isMobile);
 
+  // Extract and format the CLASS property for the modal title
+  const getModalTitle = () => {
+    if (!parkData.class && !parkData.CLASS) return 'Landuse Area';
+    
+    const classValue = parkData.class || parkData.CLASS;
+    
+    // Format: national_park -> National Park, wetland -> Wetland
+    return classValue
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  const modalTitle = getModalTitle();
+
   // Styles
   const headerStyle = {
     display: 'flex',
@@ -111,7 +126,7 @@ export const NationalParkModal = ({ isOpen, onClose, parkData, isMobile }) => {
     >
       {/* Header */}
       <div style={headerStyle}>
-        <h2 style={titleStyle}>National Park</h2>
+        <h2 style={titleStyle}>{modalTitle}</h2>
         <button
           onClick={onClose}
           style={closeButtonStyle}
