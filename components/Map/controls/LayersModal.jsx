@@ -13,27 +13,32 @@ if (typeof window !== 'undefined') {
   }
 }
 
-// Modal styles - responsive for mobile
+// Modal styles - responsive for mobile, right-aligned for desktop
 const getModalStyle = (isMobile) => ({
   overlay: {
     zIndex: 100001,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     display: 'flex',
-    alignItems: isMobile ? 'flex-end' : 'center',
-    justifyContent: 'center',
+    alignItems: isMobile ? 'flex-end' : 'flex-start',
+    justifyContent: isMobile ? 'center' : 'flex-end',
+    paddingTop: isMobile ? '0' : '5px',
+    paddingRight: isMobile ? '0' : '20px',
+    paddingBottom: isMobile ? '0' : '20px',
   },
   content: {
     position: 'relative',
     inset: 'auto',
-    width: isMobile ? '100%' : '360px',
-    maxHeight: isMobile ? '80vh' : 'auto',
+    width: isMobile ? '100%' : '400px',
+    maxHeight: isMobile ? '80vh' : 'calc(100vh - 60px)',
     border: 'none',
     background: '#fff',
-    padding: isMobile ? '16px' : '24px 22px 20px 22px',
+    padding: '0',
     borderRadius: isMobile ? '20px 20px 0 0' : '13px',
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.18)',
     fontFamily: 'Inter, Segoe UI, Roboto, Arial, sans-serif',
-    overflow: 'visible',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
   }
 });
 
@@ -62,6 +67,7 @@ export const LayersModal = ({
 }) => {
   const [expandedStates, setExpandedStates] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeFiltersExpanded, setActiveFiltersExpanded] = useState(true);
 
   const toggleStateExpansion = (state) => {
     setExpandedStates(prev => ({
@@ -78,8 +84,7 @@ export const LayersModal = ({
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '16px',
-    paddingBottom: '12px',
+    padding: isMobile ? '16px 16px 12px 16px' : '20px 22px 12px 22px',
     borderBottom: '1px solid #e5e7eb',
     flexShrink: 0,
   };
@@ -213,6 +218,7 @@ export const LayersModal = ({
       shouldCloseOnOverlayClick={true}
       shouldCloseOnEsc={true}
     >
+      {/* Header - Fixed */}
       <div style={headerStyle}>
         <h2 style={titleStyle}>Map Layers</h2>
         <button style={closeButtonStyle} onClick={onClose}>
@@ -220,8 +226,14 @@ export const LayersModal = ({
         </button>
       </div>
 
-      {/* County Boundaries - Top Level Toggle */}
-      <div style={sectionStyle}>
+      {/* Scrollable Content */}
+      <div style={{ 
+        flex: 1, 
+        overflowY: 'auto', 
+        padding: isMobile ? '16px' : '0 22px 20px 22px' 
+      }}>
+        {/* County Boundaries - Top Level Toggle */}
+        <div style={sectionStyle}>
         <div style={sectionTitleStyle}>Boundaries</div>
         
         <div style={toggleRowStyle}>
@@ -235,6 +247,47 @@ export const LayersModal = ({
         </div>
       </div>
 
+      {/* Active WMA States - Show enabled states */}
+      {Object.keys(wmaLayers).filter(state => wmaLayers[state]).length > 0 && (
+        <div style={sectionStyle}>
+          <div 
+            style={{
+              ...sectionTitleStyle,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              userSelect: 'none',
+            }}
+            onClick={() => setActiveFiltersExpanded(!activeFiltersExpanded)}
+          >
+            <span>Active Filters</span>
+            <FontAwesomeIcon 
+              icon={activeFiltersExpanded ? faChevronDown : faChevronRight} 
+              style={{ fontSize: '14px', color: '#6b7280' }}
+            />
+          </div>
+          
+          {activeFiltersExpanded && (
+            <div style={{ padding: '0 12px', marginTop: '8px' }}>
+              {Object.keys(wmaLayers)
+                .filter(state => wmaLayers[state])
+                .map(state => (
+                  <div key={`active-${state}`} style={toggleRowStyle}>
+                    <span>{state}</span>
+                    <input
+                      type="checkbox"
+                      checked={true}
+                      onChange={() => onToggleWMALayer(state)}
+                      style={checkboxStyle}
+                    />
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Search Bar */}
       <input
         type="text"
@@ -246,12 +299,12 @@ export const LayersModal = ({
 
       {/* States List - WMA Only */}
       <div style={sectionStyle}>
-        <div style={sectionTitleStyle}>Wildlife Management Areas (WMA)</div>
+        <div style={sectionTitleStyle}>All States - Wildlife Management Areas</div>
         
         <div style={scrollContainerStyle}>
           {filteredStates.map(state => {
             const isExpanded = expandedStates[state];
-            const isKentucky = state === 'Kentucky';
+            const wmaAvailable = state === 'Kentucky' || state === 'Ohio' || state === 'Georgia' || state === 'Tennessee';
             const wmaEnabled = wmaLayers?.[state] || false;
 
             return (
@@ -274,7 +327,7 @@ export const LayersModal = ({
                     {/* WMA Toggle */}
                     <div style={optionRowStyle}>
                       <span>WMA Boundaries</span>
-                      {isKentucky ? (
+                      {wmaAvailable ? (
                         <input
                           type="checkbox"
                           checked={wmaEnabled}
@@ -291,6 +344,7 @@ export const LayersModal = ({
             );
           })}
         </div>
+      </div>
       </div>
     </Modal>
   );

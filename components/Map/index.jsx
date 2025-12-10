@@ -24,6 +24,7 @@ import { MobileSearchBar } from './controls/MobileSearchBar';
 import { WeatherModal } from './controls/WeatherModal';
 import { WeatherButton } from './controls/WeatherButton';
 import { LayersModal } from './controls/LayersModal';
+import { WMAModal } from './controls/WMAModal';
 
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -107,6 +108,10 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
         }
         return {};
     });
+
+    // --- WMA Modal State ---
+    const [isWMAModalOpen, setWMAModalOpen] = useState(false);
+    const [selectedWMAData, setSelectedWMAData] = useState(null);
 
     // Handler for Area button in toolbar
     const handleAreaButtonClick = () => {
@@ -570,12 +575,15 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
             if (map) {
                 const isVisible = newLayers[stateName];
                 
-                // Toggle WMA-Line and WMA-Fill layers
-                if (map.getLayer('WMA-Line')) {
-                    map.setLayoutProperty('WMA-Line', 'visibility', isVisible ? 'visible' : 'none');
+                // Toggle state-specific WMA layers: [StateName]-WMA-Fill and [StateName]-WMA-Line
+                const fillLayerId = `${stateName}-WMA-Fill`;
+                const lineLayerId = `${stateName}-WMA-Line`;
+                
+                if (map.getLayer(fillLayerId)) {
+                    map.setLayoutProperty(fillLayerId, 'visibility', isVisible ? 'visible' : 'none');
                 }
-                if (map.getLayer('WMA-Fill')) {
-                    map.setLayoutProperty('WMA-Fill', 'visibility', isVisible ? 'visible' : 'none');
+                if (map.getLayer(lineLayerId)) {
+                    map.setLayoutProperty(lineLayerId, 'visibility', isVisible ? 'visible' : 'none');
                 }
             }
             
@@ -780,51 +788,16 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                 });
             }
 
-            // Add WMA (Wildlife Management Area) layers for Kentucky
-            // WMA-Filter group for all map styles
-            if (!initialMap.getSource('WMA-Source')) {
-                initialMap.addSource('WMA-Source', {
-                    type: 'vector',
-                    url: 'mapbox://mapbox.us_census_states_2015' // Placeholder - replace with actual WMA tileset
-                });
-            }
-
-            // WMA-Fill layer
-            if (!initialMap.getLayer('WMA-Fill')) {
-                initialMap.addLayer({
-                    id: 'WMA-Fill',
-                    type: 'fill',
-                    source: 'WMA-Source',
-                    'source-layer': 'states', // Replace with actual source layer name
-                    filter: ['==', ['get', 'STATE_NAME'], 'Kentucky'], // Filter for Kentucky WMAs
-                    paint: {
-                        'fill-color': '#10b981', // Green fill for WMAs
-                        'fill-opacity': 0.2
-                    },
-                    layout: {
-                        'visibility': wmaLayers['Kentucky'] ? 'visible' : 'none'
-                    }
-                });
-            }
-
-            // WMA-Line layer
-            if (!initialMap.getLayer('WMA-Line')) {
-                initialMap.addLayer({
-                    id: 'WMA-Line',
-                    type: 'line',
-                    source: 'WMA-Source',
-                    'source-layer': 'states', // Replace with actual source layer name
-                    filter: ['==', ['get', 'STATE_NAME'], 'Kentucky'], // Filter for Kentucky WMAs
-                    paint: {
-                        'line-color': '#059669', // Darker green for WMA boundaries
-                        'line-width': 2,
-                        'line-opacity': 0.8
-                    },
-                    layout: {
-                        'visibility': wmaLayers['Kentucky'] ? 'visible' : 'none'
-                    }
-                });
-            }
+            // WMA (Wildlife Management Area) layers are managed in Mapbox Studio
+            // Layer naming convention: [StateName]-WMA-Fill and [StateName]-WMA-Line
+            // Examples: Kentucky-WMA-Fill, Kentucky-WMA-Line, Ohio-WMA-Fill, Ohio-WMA-Line
+            // 
+            // These layers should be added to your Mapbox style with:
+            // - Fill layer: [StateName]-WMA-Fill (fill-color: #10b981, fill-opacity: 0.2)
+            // - Line layer: [StateName]-WMA-Line (line-color: #059669, line-width: 2, line-opacity: 0.8)
+            // - Initial visibility: 'none' (controlled by handleToggleWMALayer)
+            //
+            // The toggle handler will automatically show/hide layers based on the state name
 
             // Set initial visibility for admin layer (county boundaries)
             // Hidden by default, controlled by countyBoundariesVisible state
@@ -1264,7 +1237,24 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
         const handleClick = (e) => {
             document.querySelectorAll('.mapboxgl-popup').forEach(popup => popup.remove());
             
-            // Check if a feature was clicked
+            // First check for WMA layers (all state-specific WMA-Fill layers)
+            const wmaLayerIds = Object.keys(wmaLayers).map(state => `${state}-WMA-Fill`);
+            const wmaFeatures = map.queryRenderedFeatures(e.point, {
+                layers: wmaLayerIds.filter(layerId => map.getLayer(layerId))
+            });
+
+            if (wmaFeatures.length > 0) {
+                const wmaFeature = wmaFeatures[0];
+                console.log('Clicked WMA feature:', wmaFeature.properties);
+                
+                // Open WMA modal with feature properties
+                setSelectedWMAData(wmaFeature.properties);
+                setWMAModalOpen(true);
+                
+                return; // Don't check for other features if WMA was clicked
+            }
+            
+            // Check if a user-drawn feature was clicked
             const features = map.queryRenderedFeatures(e.point, {
                 layers: ['static-lines-layer', 'static-areas-layer']
             });
@@ -1361,7 +1351,43 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
             map.off('click', handleClick);
             map.off('touchend', handleClick);
         };
-    }, [map, draw, savedLines, savedAreas, handleEditFeature, handleDeleteFeature]);
+    }, [map, draw, savedLines, savedAreas, handleEditFeature, handleDeleteFeature, wmaLayers, isMobile, setSelectedWMAData, setWMAModalOpen]);
+
+    // Add cursor pointer for WMA layers on hover
+    useEffect(() => {
+        if (!map) return;
+
+        const wmaLayerIds = Object.keys(wmaLayers).flatMap(state => [
+            `${state}-WMA-Fill`,
+            `${state}-WMA-Line`
+        ]);
+
+        const handleMouseEnter = () => {
+            map.getCanvas().style.cursor = 'pointer';
+        };
+
+        const handleMouseLeave = () => {
+            map.getCanvas().style.cursor = '';
+        };
+
+        // Add hover effects for all WMA layers that exist
+        wmaLayerIds.forEach(layerId => {
+            if (map.getLayer(layerId)) {
+                map.on('mouseenter', layerId, handleMouseEnter);
+                map.on('mouseleave', layerId, handleMouseLeave);
+            }
+        });
+
+        // Cleanup
+        return () => {
+            wmaLayerIds.forEach(layerId => {
+                if (map.getLayer(layerId)) {
+                    map.off('mouseenter', layerId, handleMouseEnter);
+                    map.off('mouseleave', layerId, handleMouseLeave);
+                }
+            });
+        };
+    }, [map, wmaLayers]);
 
     // Keep static sources in sync with state changes
     useEffect(() => {
@@ -1685,6 +1711,17 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                       isMobile={isMobile}
                     />
 
+                    {/* WMA Modal - Shows WMA properties when clicked */}
+                    <WMAModal
+                      isOpen={isWMAModalOpen}
+                      onClose={() => {
+                        setWMAModalOpen(false);
+                        setSelectedWMAData(null);
+                      }}
+                      wmaData={selectedWMAData}
+                      isMobile={isMobile}
+                    />
+
                     {/* Modals - Shared between mobile and desktop */}
                     {draw && map && (
                       <>
@@ -1833,48 +1870,22 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                                                 console.log('Restored admin layer visibility to:', countyBoundariesVisible ? 'visible' : 'none');
                                             }
 
-                                            // Restore WMA layers after style change
-                                            if (!map.getSource('WMA-Source')) {
-                                                map.addSource('WMA-Source', {
-                                                    type: 'vector',
-                                                    url: 'mapbox://mapbox.us_census_states_2015' // Placeholder - replace with actual WMA tileset
-                                                });
-                                            }
-
-                                            if (!map.getLayer('WMA-Fill')) {
-                                                map.addLayer({
-                                                    id: 'WMA-Fill',
-                                                    type: 'fill',
-                                                    source: 'WMA-Source',
-                                                    'source-layer': 'states',
-                                                    filter: ['==', ['get', 'STATE_NAME'], 'Kentucky'],
-                                                    paint: {
-                                                        'fill-color': '#10b981',
-                                                        'fill-opacity': 0.2
-                                                    },
-                                                    layout: {
-                                                        'visibility': wmaLayers['Kentucky'] ? 'visible' : 'none'
+                                            // Restore WMA layer visibility after style change
+                                            // WMA layers are defined in Mapbox Studio with naming: [StateName]-WMA-Fill/Line
+                                            // Restore visibility for all enabled states
+                                            Object.keys(wmaLayers).forEach(stateName => {
+                                                if (wmaLayers[stateName]) {
+                                                    const fillLayerId = `${stateName}-WMA-Fill`;
+                                                    const lineLayerId = `${stateName}-WMA-Line`;
+                                                    
+                                                    if (map.getLayer(fillLayerId)) {
+                                                        map.setLayoutProperty(fillLayerId, 'visibility', 'visible');
                                                     }
-                                                });
-                                            }
-
-                                            if (!map.getLayer('WMA-Line')) {
-                                                map.addLayer({
-                                                    id: 'WMA-Line',
-                                                    type: 'line',
-                                                    source: 'WMA-Source',
-                                                    'source-layer': 'states',
-                                                    filter: ['==', ['get', 'STATE_NAME'], 'Kentucky'],
-                                                    paint: {
-                                                        'line-color': '#059669',
-                                                        'line-width': 2,
-                                                        'line-opacity': 0.8
-                                                    },
-                                                    layout: {
-                                                        'visibility': wmaLayers['Kentucky'] ? 'visible' : 'none'
+                                                    if (map.getLayer(lineLayerId)) {
+                                                        map.setLayoutProperty(lineLayerId, 'visibility', 'visible');
                                                     }
-                                                });
-                                            }
+                                                }
+                                            });
                                         });
                                     }
                                 }}
@@ -1990,48 +2001,22 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                             console.log('Restored admin layer visibility to:', countyBoundariesVisible ? 'visible' : 'none');
                           }
 
-                          // Restore WMA layers after style change
-                          if (!map.getSource('WMA-Source')) {
-                            map.addSource('WMA-Source', {
-                              type: 'vector',
-                              url: 'mapbox://mapbox.us_census_states_2015' // Placeholder - replace with actual WMA tileset
-                            });
-                          }
-
-                          if (!map.getLayer('WMA-Fill')) {
-                            map.addLayer({
-                              id: 'WMA-Fill',
-                              type: 'fill',
-                              source: 'WMA-Source',
-                              'source-layer': 'states',
-                              filter: ['==', ['get', 'STATE_NAME'], 'Kentucky'],
-                              paint: {
-                                'fill-color': '#10b981',
-                                'fill-opacity': 0.2
-                              },
-                              layout: {
-                                'visibility': wmaLayers['Kentucky'] ? 'visible' : 'none'
+                          // Restore WMA layer visibility after style change
+                          // WMA layers are defined in Mapbox Studio with naming: [StateName]-WMA-Fill/Line
+                          // Restore visibility for all enabled states
+                          Object.keys(wmaLayers).forEach(stateName => {
+                            if (wmaLayers[stateName]) {
+                              const fillLayerId = `${stateName}-WMA-Fill`;
+                              const lineLayerId = `${stateName}-WMA-Line`;
+                              
+                              if (map.getLayer(fillLayerId)) {
+                                map.setLayoutProperty(fillLayerId, 'visibility', 'visible');
                               }
-                            });
-                          }
-
-                          if (!map.getLayer('WMA-Line')) {
-                            map.addLayer({
-                              id: 'WMA-Line',
-                              type: 'line',
-                              source: 'WMA-Source',
-                              'source-layer': 'states',
-                              filter: ['==', ['get', 'STATE_NAME'], 'Kentucky'],
-                              paint: {
-                                'line-color': '#059669',
-                                'line-width': 2,
-                                'line-opacity': 0.8
-                              },
-                              layout: {
-                                'visibility': wmaLayers['Kentucky'] ? 'visible' : 'none'
+                              if (map.getLayer(lineLayerId)) {
+                                map.setLayoutProperty(lineLayerId, 'visibility', 'visible');
                               }
-                            });
-                          }
+                            }
+                          });
                         });
                       }
                     }}
