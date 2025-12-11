@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import Modal from 'react-modal';
 import mapboxgl from 'mapbox-gl';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMapMarkerAlt, faSave, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faMapMarkerAlt, faSave, faTrash, faRoute, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import { ConfirmModal } from './ConfirmModal';
+import { NavigationModal } from './NavigationModal';
 import { waypointAPI } from '@/lib/api/geospatial';
 
 // Helper to detect mobile
@@ -39,7 +40,7 @@ if (typeof window !== 'undefined') {
 
 import { WaypointDrawer } from '../controls/WaypointAction';
 
-export const WaypointButton = ({ map, mapContainerRef, waypointDrawerRef }) => {
+export const WaypointButton = ({ map, mapContainerRef, waypointDrawerRef, onNavigationStart }) => {
   const [waypointType, setWaypointType] = React.useState('deer');
   const [isDraggable, setIsDraggable] = React.useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -52,6 +53,9 @@ export const WaypointButton = ({ map, mapContainerRef, waypointDrawerRef }) => {
   const [pendingWaypointDetails, setPendingWaypointDetails] = useState(null);
   const tempMarkerRef = useRef(null);
   const isMobile = useIsMobile();
+  const [isNavigationModalOpen, setIsNavigationModalOpen] = useState(false);
+  const [navigationDestination, setNavigationDestination] = useState(null);
+  const [isModalMinimized, setIsModalMinimized] = useState(false);
 
   // Use callback to avoid stale closures
   const handleMarkerClick = React.useCallback((marker) => {
@@ -256,6 +260,30 @@ export const WaypointButton = ({ map, mapContainerRef, waypointDrawerRef }) => {
 
   const [showConfirm, setShowConfirm] = React.useState(false);
 
+  const handleGetDirections = () => {
+    // Get the current waypoint's coordinates
+    if (editFeatureId && waypointDrawerRef?.current) {
+      const marker = waypointDrawerRef.current.markers.find(m => m._dbId === editFeatureId || m._waypointId === editFeatureId);
+      if (marker) {
+        const lngLat = marker.getLngLat();
+        setNavigationDestination({
+          name: waypointName,
+          lng: lngLat.lng,
+          lat: lngLat.lat,
+          color: waypointColor
+        });
+        setIsNavigationModalOpen(true);
+      }
+    }
+  };
+
+  const handleNavigationStart = (navigationData) => {
+    // Pass navigation data to parent Map component
+    if (onNavigationStart) {
+      onNavigationStart(navigationData);
+    }
+  };
+
   return (
     <>
       <button
@@ -282,38 +310,51 @@ export const WaypointButton = ({ map, mapContainerRef, waypointDrawerRef }) => {
         style={{
           overlay: {
             zIndex: 99999,
-            backgroundColor: 'transparent', // Always transparent to allow map interaction
-            pointerEvents: 'none', // Always allow map clicks through
+            backgroundColor: 'transparent',
+            pointerEvents: 'none',
             display: 'flex',
             alignItems: isMobile ? 'flex-end' : 'flex-start',
             justifyContent: isMobile ? 'center' : 'flex-start',
           },
           content: {
             position: 'relative',
-            left: isMobile ? '0' : '30px',
-            top: isMobile ? 'auto' : '30px',
+            left: isMobile ? '0' : (isModalMinimized ? '-310px' : '30px'),
+            top: isMobile ? 'auto' : '80px',
             bottom: isMobile ? '60px' : 'auto',
             width: isMobile ? '100%' : '100%',
             maxWidth: isMobile ? '100%' : '360px',
             height: isMobile ? '25vh' : '600px',
-            maxHeight: isMobile ? '25vh' : '80vh',
-            overflowY: 'auto',
+            maxHeight: isMobile ? '25vh' : 'calc(100vh - 100px)',
+            overflowY: isModalMinimized ? 'hidden' : 'auto',
             border: 'none',
             zIndex: 100000,
             background: '#fff',
             padding: isMobile ? '16px' : '24px 22px 20px 22px',
             borderRadius: isMobile ? '20px 20px 0 0' : '13px',
             boxShadow: '0 4px 20px rgba(0, 0, 0, 0.18)',
-            pointerEvents: 'auto', // Only modal content is interactive
-            fontFamily: "Inter, Segoe UI, Roboto, Arial, sans-serif"
+            pointerEvents: 'auto',
+            fontFamily: "Inter, Segoe UI, Roboto, Arial, sans-serif",
+            transition: 'left 0.3s ease-in-out'
           }
         }}
       >
-        <button
-          onClick={() => setShowConfirm(true)}
-          style={{ position: 'absolute', top: 8, right: 12, border: 'none', background: 'none', fontSize: 22, cursor: 'pointer', color: '#888', zIndex: 100001 }}
-          aria-label="Close Modal"
-        >×</button>
+        <div style={{ position: 'absolute', top: 8, right: 12, display: 'flex', gap: 8, zIndex: 100001 }}>
+          {!isMobile && (
+            <button
+              onClick={() => setIsModalMinimized(!isModalMinimized)}
+              style={{ border: 'none', background: 'none', fontSize: 18, cursor: 'pointer', color: '#888', padding: 4 }}
+              aria-label={isModalMinimized ? "Expand Modal" : "Minimize Modal"}
+              title={isModalMinimized ? "Expand to see waypoint details" : "Minimize to see more of the map"}
+            >
+              <FontAwesomeIcon icon={isModalMinimized ? faChevronRight : faChevronLeft} />
+            </button>
+          )}
+          <button
+            onClick={() => setShowConfirm(true)}
+            style={{ border: 'none', background: 'none', fontSize: 22, cursor: 'pointer', color: '#888' }}
+            aria-label="Close Modal"
+          >×</button>
+        </div>
         <ConfirmModal
           isOpen={!!showConfirm}
           message={editFeatureId ? 'Are you sure you want to cancel editing this waypoint?' : 'Are you sure you want to cancel adding this waypoint?'}
@@ -420,6 +461,26 @@ export const WaypointButton = ({ map, mapContainerRef, waypointDrawerRef }) => {
           </div>
         )}
         <div style={{...styles.buttonGroup, marginTop:'20px'}}>
+          {editFeatureId && (
+            <button
+              style={{
+                ...styles.saveButton,
+                background: '#10b981',
+                fontSize: '1.13rem',
+                fontWeight: 600,
+                padding: '13px',
+                marginBottom: '6px',
+                fontFamily: 'inherit',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+              onClick={handleGetDirections}
+            >
+              <FontAwesomeIcon icon={faRoute} /> Get Directions
+            </button>
+          )}
           <button
             style={{...styles.saveButton, fontSize:'1.13rem', fontWeight:600, padding:'13px', marginBottom:'6px', fontFamily:'inherit'}}
             onClick={async () => {
@@ -479,9 +540,17 @@ export const WaypointButton = ({ map, mapContainerRef, waypointDrawerRef }) => {
           )}
         </div>
       </Modal>
+
+      <NavigationModal
+        isOpen={isNavigationModalOpen}
+        onClose={() => setIsNavigationModalOpen(false)}
+        destination={navigationDestination}
+        map={map}
+        onNavigationStart={handleNavigationStart}
+      />
     </>
   );
-}
+};
 
 const styles = {
   button: {

@@ -27,6 +27,8 @@ import { LayersModal } from './controls/LayersModal';
 import { WMAModal } from './controls/WMAModal';
 import { NationalParkModal } from './controls/NationalParkModal';
 import { CombinedPropertiesModal } from './controls/CombinedPropertiesModal';
+import { DirectionsPanel } from './controls/DirectionsPanel';
+import { fetchRoute, addRouteToMap, removeRouteFromMap, addAllRoutesToMap, removeAllRoutesFromMap, updateActiveRoute, addNavigationMarkers, parseInstructions } from '@/lib/navigation';
 
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -132,6 +134,91 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
     const [isCombinedModalOpen, setCombinedModalOpen] = useState(false);
     const [combinedWMAData, setCombinedWMAData] = useState(null);
     const [combinedParkData, setCombinedParkData] = useState(null);
+
+    // --- Navigation State ---
+    const [activeRoute, setActiveRoute] = useState(null);
+    const [routeInstructions, setRouteInstructions] = useState([]);
+    const [showDirectionsPanel, setShowDirectionsPanel] = useState(false);
+    const navigationMarkersRef = useRef([]);
+
+    // Handler for navigation
+    const handleNavigationStart = async (navigationData) => {
+        if (!map) return;
+
+        try {
+            console.log('Starting navigation:', navigationData);
+            
+            // Clear any existing routes
+            removeAllRoutesFromMap(map);
+            navigationMarkersRef.current.forEach(marker => marker.remove());
+            navigationMarkersRef.current = [];
+
+            // Fetch routes from Mapbox Directions API (with alternatives)
+            const routes = await fetchRoute(
+                navigationData.start, 
+                navigationData.end, 
+                navigationData.options || {}
+            );
+            
+            console.log(`Received ${routes.length} route alternatives`);
+            
+            // Display all routes on the map
+            addAllRoutesToMap(map, routes, 0, handleRouteSelect);
+            
+            // Add start and end markers
+            const markers = addNavigationMarkers(map, navigationData.start, navigationData.end);
+            navigationMarkersRef.current = markers;
+            
+            // Parse instructions for primary route
+            const primaryRoute = routes[0];
+            const instructions = parseInstructions(primaryRoute);
+            
+            // Update state with all routes
+            setActiveRoute(primaryRoute);
+            setRouteInstructions(instructions);
+            setShowDirectionsPanel(true);
+            
+            // Store all routes for alternative selection
+            window.availableRoutes = routes;
+            
+            console.log('✅ Navigation routes displayed successfully');
+        } catch (error) {
+            console.error('❌ Error displaying navigation route:', error);
+            alert('Failed to get directions. Please try again.');
+        }
+    };
+
+    const handleCloseDirections = () => {
+        if (map) {
+            removeAllRoutesFromMap(map);
+            navigationMarkersRef.current.forEach(marker => marker.remove());
+            navigationMarkersRef.current = [];
+        }
+        setActiveRoute(null);
+        setRouteInstructions([]);
+        setShowDirectionsPanel(false);
+        window.availableRoutes = null;
+    };
+
+    const handleRouteSelect = (selectedRoute) => {
+        if (!map) return;
+
+        try {
+            // Update route styling to highlight selected route
+            updateActiveRoute(map, selectedRoute.routeIndex);
+            
+            // Parse instructions for selected route
+            const instructions = parseInstructions(selectedRoute);
+            
+            // Update state
+            setActiveRoute(selectedRoute);
+            setRouteInstructions(instructions);
+            
+            console.log(`Switched to route ${selectedRoute.routeIndex + 1}`);
+        } catch (error) {
+            console.error('Error switching route:', error);
+        }
+    };
 
     // Handler for Area button in toolbar
     const handleAreaButtonClick = () => {
@@ -1740,6 +1827,7 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                           map={map} 
                           mapContainerRef={mapContainer} 
                           waypointDrawerRef={waypointDrawerRef}
+                          onNavigationStart={handleNavigationStart}
                         />
                       </div>
                     )}
@@ -1758,6 +1846,7 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                             onLineButtonClick={handleLineButtonClick} 
                             onAreaButtonClick={handleAreaButtonClick}
                             onLayersButtonClick={() => setLayersModalOpen(true)}
+                            onNavigationStart={handleNavigationStart}
                           />
                         )}
                         <ZoomControl map={map} />
@@ -2211,6 +2300,18 @@ const Map = ({ geocoderContainerRef: externalGeocoderRef, onSearchToggle, showSe
                       <span>Show Coordinates</span>
                     </label>
                 </div>
+                )}
+
+                {/* Directions Panel */}
+                {showDirectionsPanel && activeRoute && (
+                    <DirectionsPanel
+                        route={activeRoute}
+                        instructions={routeInstructions}
+                        onClose={handleCloseDirections}
+                        onRouteSelect={handleRouteSelect}
+                        startName="Start"
+                        endName="Destination"
+                    />
                 )}
 </div>
             

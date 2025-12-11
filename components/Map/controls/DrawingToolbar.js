@@ -10,7 +10,7 @@ import LineButton from './Line';
 import AreaButton from './AreaButton';
 import { LayersButton } from './LayersButton';
 
-export const DrawingToolbar = ({ draw, map, mapContainerRef, waypointDrawerRef, onLineButtonClick, onAreaButtonClick, onLayersButtonClick }) => {
+export const DrawingToolbar = ({ draw, map, mapContainerRef, waypointDrawerRef, onLineButtonClick, onAreaButtonClick, onLayersButtonClick, onNavigationStart }) => {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -94,7 +94,7 @@ export const DrawingToolbar = ({ draw, map, mapContainerRef, waypointDrawerRef, 
 
       {/* 🔹 Modular Buttons */}
 
-      <WaypointButton map={map} mapContainerRef={mapContainerRef} waypointDrawerRef={waypointDrawerRef} />
+      <WaypointButton map={map} mapContainerRef={mapContainerRef} waypointDrawerRef={waypointDrawerRef} onNavigationStart={onNavigationStart} />
       <LineButton onLineButtonClick={onLineButtonClick} />
       <AreaButton onAreaButtonClick={onAreaButtonClick} />
       <LayersButton onClick={onLayersButtonClick} isMobile={isMobile} />

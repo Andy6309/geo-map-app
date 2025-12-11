@@ -39,7 +39,7 @@ const getModalStyle = (isMobile) => ({
   content: {
     position: 'relative',
     left: isMobile ? '0' : '30px',
-    top: isMobile ? 'auto' : '30px',
+    top: isMobile ? 'auto' : '80px',
     bottom: isMobile ? '60px' : 'auto', // Above mobile toolbar
     width: isMobile ? '100%' : '100%',
     maxWidth: isMobile ? '100%' : '360px',
