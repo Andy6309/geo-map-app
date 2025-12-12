@@ -25,14 +25,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      // If session is expired or invalid, clear it
+      if (error || !session) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+      setUser(session.user);
+      setLoading(false);
+    }).catch(() => {
+      // Handle any errors gracefully
+      setUser(null);
       setLoading(false);
     });
 
     // Listen for changes on auth state (sign in, sign out, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null);
+      // Handle token refresh failures and expired sessions
+      if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
+        setUser(session?.user ?? null);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+      }
       setLoading(false);
     });
 
