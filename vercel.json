@@ -33,7 +33,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' *.mapbox.com; connect-src 'self' *.mapbox.com data: blob:; img-src 'self' data: blob: *.mapbox.com; style-src 'self' 'unsafe-inline' *.mapbox.com; worker-src blob:; child-src blob: data:; frame-src 'self' blob: data:;"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' *.mapbox.com; connect-src 'self' *.mapbox.com *.supabase.co data: blob:; img-src 'self' data: blob: *.mapbox.com; style-src 'self' 'unsafe-inline' *.mapbox.com; worker-src blob:; child-src blob: data:; frame-src 'self' blob: data:;"
         }
       ]
     },
