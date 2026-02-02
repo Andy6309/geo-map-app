@@ -73,6 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, username?: string) => {
     try {
+      console.log('Attempting signup with Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -83,10 +85,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase signup error:', error);
+        throw error;
+      }
       
+      console.log('Signup successful');
       return { error: null };
     } catch (error) {
+      console.error('Signup catch block error:', error);
       return { error: error as Error };
     }
   };
